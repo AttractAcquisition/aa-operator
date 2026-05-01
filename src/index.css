@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --electric: #00D4FF;
+  --amber: #FFB800;
+  --red: #FF4560;
+  --green: #00E676;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Barlow', sans-serif;
+  background-color: #05050A;
+  color: #E2E8F0;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #0A0A12; }
+::-webkit-scrollbar-thumb { background: #252540; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #00D4FF40; }
+
+/* Selection */
+::selection { background: rgba(0, 212, 255, 0.2); color: #fff; }
+
+/* Focus */
+:focus-visible { outline: 1px solid rgba(0, 212, 255, 0.6); outline-offset: 2px; }
+
+/* Panel base */
+.panel {
+  @apply bg-base-800 border border-base-600 rounded-lg;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Electric border effect */
+.border-electric {
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+/* Status dot pulse */
+.status-dot-live::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.3;
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes ping {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+/* Chat message animation */
+.chat-message {
+  animation: fadeUp 0.3s ease-out;
+}
+
+/* Tier badge */
+.tier-auto { @apply text-green-op bg-green-op/10 border border-green-op/20; }
+.tier-assisted { @apply text-amber-op bg-amber-op/10 border border-amber-op/20; }
+.tier-human { @apply text-red-op bg-red-op/10 border border-red-op/20; }
+
+/* Monospace data display */
+.data-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-feature-settings: "tnum";
+}
+
+/* Grid background overlay */
+.grid-bg {
+  background-image: linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Glowing text */
+.text-glow-electric {
+  text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+.text-glow-amber {
+  text-shadow: 0 0 20px rgba(255, 184, 0, 0.5);
+}
+
+/* Animated border */
+@keyframes border-spin {
+  to { --angle: 360deg; }
+}
+
+/* Loading bar */
+.loading-bar {
+  background: linear-gradient(90deg, transparent, #00D4FF, transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Cursor blink */
+.cursor-blink::after {
+  content: '|';
+  animation: blink 1.2s step-end infinite;
+  color: #00D4FF;
+  font-weight: 300;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
