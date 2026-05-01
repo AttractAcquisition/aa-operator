@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, Search, Filter } from 'lucide-react'
+import { Play, Search } from 'lucide-react'
 import { mockSOPs } from '@/lib/mockData'
 import { Panel, TierBadge, Button, StatusDot } from '@/components/ui'
 import { formatRelative, cn } from '@/lib/utils'

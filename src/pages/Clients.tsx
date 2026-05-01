@@ -1,7 +1,7 @@
 // ─── Clients Page ─────────────────────────────────────────────────────────────
 import { mockClients, mockSprints } from '@/lib/mockData'
-import { Panel, StatCard, SectionHeader, Button, ProgressBar } from '@/components/ui'
-import { Users, Zap, TrendingUp, DollarSign, ExternalLink } from 'lucide-react'
+import { Panel, StatCard, Button, ProgressBar } from '@/components/ui'
+import { Users, Zap, DollarSign, ExternalLink } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 

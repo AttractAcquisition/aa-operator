@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CheckCircle, AlertTriangle, Info, X } from 'lucide-react'
 import { mockAlerts } from '@/lib/mockData'
-import { Panel, SeverityBadge, Button, EmptyState } from '@/components/ui'
+import { Panel, SeverityBadge, EmptyState } from '@/components/ui'
 import { formatRelative, cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import type { AIAlert } from '@/types'

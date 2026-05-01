@@ -4,7 +4,7 @@
 // Each function is named to match the Supabase table / Edge Function it will use.
 
 import type {
-  Prospect, Sprint, Client, ApprovalItem, CronJob,
+  Sprint, Client, ApprovalItem, CronJob,
   AIAlert, AITaskLog, FinanceEntry, SOP, DailyBriefing
 } from '@/types'
 

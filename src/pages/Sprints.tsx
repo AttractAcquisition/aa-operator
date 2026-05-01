@@ -1,9 +1,9 @@
 import { mockSprints } from '@/lib/mockData'
-import { Panel, StatCard, SectionHeader, ProgressBar, Button } from '@/components/ui'
+import { Panel, StatCard, ProgressBar, Button } from '@/components/ui'
 import { formatCurrency, getHealthColor, getSprintHealth, formatDate } from '@/lib/utils'
 import { Zap, TrendingUp, DollarSign, Target, Play, BarChart2 } from 'lucide-react'
 import { useAppStore } from '@/store'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { AreaChart, Area, XAxis, ResponsiveContainer } from 'recharts'
 
 // Mock daily trend data per sprint
 const trendData = [
@@ -15,8 +15,6 @@ const trendData = [
 function SprintCard({ sprint }: { sprint: typeof mockSprints[0] }) {
   const health = getSprintHealth(sprint.cpl, sprint.cpl_target)
   const healthColor = getHealthColor(health)
-  const leadsProgress = Math.min(100, (sprint.leads_generated / sprint.leads_target) * 100)
-  const spendProgress = Math.min(100, (sprint.spend / sprint.spend_budget) * 100)
   const { addNotification } = useAppStore()
 
   const healthLabel = health === 'on_track' ? 'ON TRACK' : health === 'at_risk' ? 'AT RISK' : 'OFF TRACK'

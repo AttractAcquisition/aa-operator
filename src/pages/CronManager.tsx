@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Play, Pause, RotateCcw, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { mockCronJobs } from '@/lib/mockData'
-import { Panel, SectionHeader, Button, StatusDot, TierBadge } from '@/components/ui'
-import { formatDate, formatRelative, cn } from '@/lib/utils'
+import { Panel, SectionHeader, Button, StatusDot } from '@/components/ui'
+import { formatRelative, cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import type { CronJob } from '@/types'
 

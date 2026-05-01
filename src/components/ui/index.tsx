@@ -3,9 +3,9 @@ import type { ReactNode } from 'react'
 import type { AutomationTier, AlertSeverity } from '@/types'
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
-export function Panel({ children, className }: { children: ReactNode; className?: string }) {
+export function Panel({ children, className, onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
   return (
-    <div className={cn('panel', className)}>
+    <div className={cn('panel', className)} onClick={onClick}>
       {children}
     </div>
   )

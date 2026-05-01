@@ -3,7 +3,7 @@ import { Panel, StatCard, SectionHeader, Button } from '@/components/ui'
 import { DollarSign, TrendingUp, AlertTriangle, RefreshCw } from 'lucide-react'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 export function Finance() {
   const { addNotification } = useAppStore()

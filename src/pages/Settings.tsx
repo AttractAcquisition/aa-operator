@@ -43,8 +43,6 @@ function ConfigField({ label, placeholder, envKey, isSecret = false }: {
 }
 
 export function Settings() {
-  const { addNotification } = useAppStore()
-
   return (
     <div className="space-y-5 animate-fade-up">
       <div>

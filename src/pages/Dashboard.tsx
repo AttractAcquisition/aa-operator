@@ -4,8 +4,8 @@ import {
   ArrowRight, Users, Zap, DollarSign, CheckSquare,
   Bell, TrendingUp, Clock, Play, RefreshCw
 } from 'lucide-react'
-import { mockDailyBriefing, mockSprints, mockTaskLog } from '@/lib/mockData'
-import { StatCard, Panel, SectionHeader, TierBadge, ProgressBar, Button, Spinner } from '@/components/ui'
+import { mockDailyBriefing, mockTaskLog } from '@/lib/mockData'
+import { StatCard, Panel, SectionHeader, ProgressBar, Button, Spinner } from '@/components/ui'
 import { formatDate, formatCurrency, getHealthColor } from '@/lib/utils'
 import { useAppStore } from '@/store'
 
