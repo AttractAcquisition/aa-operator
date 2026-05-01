@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle, XCircle, Edit3, ChevronDown, ChevronUp, MessageSquare, FileText, Send } from 'lucide-react'
-import { mockApprovals } from '@/lib/mockData'
+import { supabase, updateApprovalStatus } from '@/lib/supabase'
 import { Panel, Button, EmptyState } from '@/components/ui'
 import { formatDate, cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
-import type { ApprovalItem } from '@/types'
+import type { ApprovalItem, ApprovalType } from '@/types'
 
 const typeIcon: Record<string, React.ElementType> = {
   whatsapp_message: MessageSquare,
@@ -22,10 +23,37 @@ const priorityColor: Record<string, string> = {
   low: 'text-base-500 border-base-600 bg-base-750',
 }
 
-function ApprovalCard({ item, onApprove, onReject }: {
+async function fetchApprovals(): Promise<ApprovalItem[]> {
+  const { data, error } = await supabase
+    .from('approval_queue')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(row => ({
+    ...(row as Omit<ApprovalItem, 'type'>),
+    type: row.content_type as ApprovalType,
+  }))
+}
+
+function SkeletonCard() {
+  return (
+    <div className="panel border border-base-700 p-4 animate-pulse">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-base-700" />
+        <div className="flex-1 space-y-2">
+          <div className="h-3 bg-base-700 rounded w-2/5" />
+          <div className="h-2 bg-base-750 rounded w-1/4" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ApprovalCard({ item, onApprove, onReject, isPending }: {
   item: ApprovalItem
   onApprove: (id: string) => void
   onReject: (id: string) => void
+  isPending: boolean
 }) {
   const [expanded, setExpanded] = useState(item.priority === 'high')
   const [editing, setEditing] = useState(false)
@@ -78,14 +106,16 @@ function ApprovalCard({ item, onApprove, onReject }: {
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); onApprove(item.id) }}
-                className="p-1.5 rounded text-green-op hover:bg-green-op/10 transition-colors"
+                disabled={isPending}
+                className="p-1.5 rounded text-green-op hover:bg-green-op/10 transition-colors disabled:opacity-40"
                 title="Approve"
               >
                 <CheckCircle size={16} />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onReject(item.id) }}
-                className="p-1.5 rounded text-red-op hover:bg-red-op/10 transition-colors"
+                disabled={isPending}
+                className="p-1.5 rounded text-red-op hover:bg-red-op/10 transition-colors disabled:opacity-40"
                 title="Reject"
               >
                 <XCircle size={16} />
@@ -100,7 +130,6 @@ function ApprovalCard({ item, onApprove, onReject }: {
       {expanded && (
         <div className="px-4 pb-4 border-t border-base-700">
           <div className="mt-3 space-y-3">
-            {/* Metadata */}
             {item.content.metadata && (
               <div className="flex flex-wrap gap-2">
                 {Object.entries(item.content.metadata).map(([k, v]) => (
@@ -112,7 +141,6 @@ function ApprovalCard({ item, onApprove, onReject }: {
               </div>
             )}
 
-            {/* Content body */}
             {editing ? (
               <textarea
                 value={editContent}
@@ -125,10 +153,9 @@ function ApprovalCard({ item, onApprove, onReject }: {
               </div>
             )}
 
-            {/* Actions */}
             {!isActioned && (
               <div className="flex items-center gap-2">
-                <Button onClick={() => onApprove(item.id)} variant="success" size="sm">
+                <Button onClick={() => onApprove(item.id)} variant="success" size="sm" disabled={isPending}>
                   <CheckCircle size={12} /> Approve & Send
                 </Button>
                 <Button onClick={() => setEditing(!editing)} variant="secondary" size="sm">
@@ -138,11 +165,12 @@ function ApprovalCard({ item, onApprove, onReject }: {
                   <Button
                     onClick={() => { setEditing(false); onApprove(item.id) }}
                     variant="primary" size="sm"
+                    disabled={isPending}
                   >
                     Save & Approve
                   </Button>
                 )}
-                <Button onClick={() => onReject(item.id)} variant="danger" size="sm">
+                <Button onClick={() => onReject(item.id)} variant="danger" size="sm" disabled={isPending}>
                   <XCircle size={12} /> Reject
                 </Button>
               </div>
@@ -156,25 +184,41 @@ function ApprovalCard({ item, onApprove, onReject }: {
 
 export function ApprovalQueue() {
   const { addNotification } = useAppStore()
-  const [items, setItems] = useState<ApprovalItem[]>(mockApprovals)
+  const queryClient = useQueryClient()
   const [filter, setFilter] = useState<'all' | 'pending' | 'actioned'>('pending')
+
+  const { data: items = [], isLoading, isError } = useQuery({
+    queryKey: ['approval_queue'],
+    queryFn: fetchApprovals,
+  })
+
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => updateApprovalStatus(id, 'approved'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['approval_queue'] })
+      addNotification('Item approved and queued for action', 'success')
+    },
+    onError: (err: Error) => addNotification(err.message, 'error'),
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) => updateApprovalStatus(id, 'rejected'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['approval_queue'] })
+      addNotification('Item rejected', 'info')
+    },
+    onError: (err: Error) => addNotification(err.message, 'error'),
+  })
 
   const pending = items.filter(i => i.status === 'pending').length
   const actioned = items.filter(i => i.status !== 'pending').length
+  const isMutating = approveMutation.isPending || rejectMutation.isPending
 
-  const approve = (id: string) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'approved' as const } : i))
-    addNotification('Item approved and queued for action', 'success')
-  }
-
-  const reject = (id: string) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'rejected' as const } : i))
-    addNotification('Item rejected', 'info')
-  }
-
-  const approveAll = () => {
-    setItems(prev => prev.map(i => i.status === 'pending' ? { ...i, status: 'approved' as const } : i))
-    addNotification(`${pending} items approved`, 'success')
+  const approveAll = async () => {
+    const pendingItems = items.filter(i => i.status === 'pending')
+    await Promise.all(pendingItems.map(i => updateApprovalStatus(i.id, 'approved')))
+    queryClient.invalidateQueries({ queryKey: ['approval_queue'] })
+    addNotification(`${pendingItems.length} items approved`, 'success')
   }
 
   const filtered = items.filter(i => {
@@ -190,11 +234,11 @@ export function ApprovalQueue() {
         <div>
           <h2 className="font-display font-bold text-white text-xl uppercase tracking-wide">Approval Queue</h2>
           <p className="text-xs text-base-500 font-mono mt-0.5">
-            {pending} pending · {actioned} actioned
+            {isLoading ? 'Loading…' : `${pending} pending · ${actioned} actioned`}
           </p>
         </div>
-        {pending > 0 && (
-          <Button onClick={approveAll} variant="success" size="sm">
+        {!isLoading && pending > 0 && (
+          <Button onClick={approveAll} variant="success" size="sm" disabled={isMutating}>
             <CheckCircle size={12} /> Approve All ({pending})
           </Button>
         )}
@@ -220,7 +264,21 @@ export function ApprovalQueue() {
 
       {/* Items */}
       <div className="space-y-3">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : isError ? (
+          <Panel className="p-8">
+            <EmptyState
+              icon={<XCircle size={32} />}
+              title="Failed to load queue"
+              sub="Check your Supabase connection"
+            />
+          </Panel>
+        ) : filtered.length === 0 ? (
           <Panel className="p-8">
             <EmptyState
               icon={<CheckCircle size={32} />}
@@ -230,7 +288,13 @@ export function ApprovalQueue() {
           </Panel>
         ) : (
           filtered.map(item => (
-            <ApprovalCard key={item.id} item={item} onApprove={approve} onReject={reject} />
+            <ApprovalCard
+              key={item.id}
+              item={item}
+              onApprove={(id) => approveMutation.mutate(id)}
+              onReject={(id) => rejectMutation.mutate(id)}
+              isPending={isMutating}
+            />
           ))
         )}
       </div>

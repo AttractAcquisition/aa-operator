@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   ArrowRight, Users, Zap, DollarSign, CheckSquare,
   Bell, TrendingUp, Clock, Play, RefreshCw
 } from 'lucide-react'
-import { mockDailyBriefing, mockTaskLog } from '@/lib/mockData'
+import { mockDailyBriefing } from '@/lib/mockData'
+import { supabase } from '@/lib/supabase'
 import { StatCard, Panel, SectionHeader, ProgressBar, Button, Spinner } from '@/components/ui'
 import { formatDate, formatCurrency, getHealthColor } from '@/lib/utils'
 import { useAppStore } from '@/store'
+import type { AITaskLog } from '@/types'
 
 const urgencyDot: Record<string, string> = {
   high: 'bg-red-op',
@@ -15,11 +18,74 @@ const urgencyDot: Record<string, string> = {
   low: 'bg-electric',
 }
 
+interface DashboardKPIs {
+  newLeads: number
+  warmReplies: number
+  activeSprints: number
+  pendingApprovals: number
+  openAlerts: number
+}
+
+async function fetchKPIs(): Promise<DashboardKPIs> {
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString()
+  const [newLeads, warmReplies, activeSprints, pendingApprovals, openAlerts] = await Promise.all([
+    supabase
+      .from('prospects')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', yesterday),
+    supabase
+      .from('prospects')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'warm'),
+    supabase
+      .from('sprints')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active'),
+    supabase
+      .from('approval_queue')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending'),
+    supabase
+      .from('ai_alerts')
+      .select('*', { count: 'exact', head: true })
+      .eq('resolved', false),
+  ])
+  return {
+    newLeads: newLeads.count ?? 0,
+    warmReplies: warmReplies.count ?? 0,
+    activeSprints: activeSprints.count ?? 0,
+    pendingApprovals: pendingApprovals.count ?? 0,
+    openAlerts: openAlerts.count ?? 0,
+  }
+}
+
+async function fetchRecentTaskLog(): Promise<AITaskLog[]> {
+  const { data, error } = await supabase
+    .from('ai_task_log')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(10)
+  if (error) throw new Error(error.message)
+  return (data ?? []) as AITaskLog[]
+}
+
 export function Dashboard() {
   const navigate = useNavigate()
   const { addNotification } = useAppStore()
   const [refreshing, setRefreshing] = useState(false)
   const b = mockDailyBriefing
+
+  const { data: kpis, isLoading: kpisLoading } = useQuery({
+    queryKey: ['dashboard_kpis'],
+    queryFn: fetchKPIs,
+    refetchInterval: 1000 * 60 * 5,
+  })
+
+  const { data: taskLog = [], isLoading: logLoading } = useQuery({
+    queryKey: ['ai_task_log_recent'],
+    queryFn: fetchRecentTaskLog,
+    refetchInterval: 1000 * 60 * 2,
+  })
 
   const runBriefing = async () => {
     setRefreshing(true)
@@ -54,12 +120,49 @@ export function Dashboard() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <StatCard label="New Leads" value={b.new_leads} sub="since yesterday" color="electric" icon={<TrendingUp size={14} />} trend={{ value: 12 }} />
-        <StatCard label="Warm Replies" value={b.warm_replies} sub="pending follow-up" color="green" icon={<Users size={14} />} />
-        <StatCard label="Active Sprints" value={b.active_sprints} sub="proof sprints live" color="purple" icon={<Zap size={14} />} />
-        <StatCard label="Pending Approval" value={b.pending_approvals} sub="items queued" color="amber" icon={<CheckSquare size={14} />} />
-        <StatCard label="Open Alerts" value={b.open_alerts} sub="need attention" color="red" icon={<Bell size={14} />} />
-        <StatCard label="MRR" value={formatCurrency(b.mrr)} sub="↑12% vs last month" color="green" icon={<DollarSign size={14} />} trend={{ value: 12, label: 'MoM' }} />
+        <StatCard
+          label="New Leads"
+          value={kpisLoading ? '…' : kpis!.newLeads}
+          sub="since yesterday"
+          color="electric"
+          icon={<TrendingUp size={14} />}
+        />
+        <StatCard
+          label="Warm Replies"
+          value={kpisLoading ? '…' : kpis!.warmReplies}
+          sub="pending follow-up"
+          color="green"
+          icon={<Users size={14} />}
+        />
+        <StatCard
+          label="Active Sprints"
+          value={kpisLoading ? '…' : kpis!.activeSprints}
+          sub="proof sprints live"
+          color="purple"
+          icon={<Zap size={14} />}
+        />
+        <StatCard
+          label="Pending Approval"
+          value={kpisLoading ? '…' : kpis!.pendingApprovals}
+          sub="items queued"
+          color="amber"
+          icon={<CheckSquare size={14} />}
+        />
+        <StatCard
+          label="Open Alerts"
+          value={kpisLoading ? '…' : kpis!.openAlerts}
+          sub="need attention"
+          color="red"
+          icon={<Bell size={14} />}
+        />
+        <StatCard
+          label="MRR"
+          value={formatCurrency(b.mrr)}
+          sub="↑12% vs last month"
+          color="green"
+          icon={<DollarSign size={14} />}
+          trend={{ value: 12, label: 'MoM' }}
+        />
       </div>
 
       {/* Main grid */}
@@ -135,23 +238,37 @@ export function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Panel className="p-4">
           <SectionHeader title="Overnight AI Activity" action={
-            <span className="text-[10px] font-mono text-base-500">LAST 8 HOURS</span>
+            <span className="text-[10px] font-mono text-base-500">LAST 10 RUNS</span>
           } />
           <div className="space-y-1">
-            {mockTaskLog.slice(0, 6).map((log) => (
-              <div key={log.id} className="flex items-center gap-3 py-2 border-b border-base-700 last:border-0">
-                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${log.status === 'success' ? 'bg-green-op' : 'bg-red-op'}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-electric">SOP {log.sop_id}</span>
-                    <span className="text-xs text-white truncate">{log.output_summary}</span>
+            {logLoading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 py-2 border-b border-base-700 last:border-0 animate-pulse">
+                  <div className="w-1.5 h-1.5 rounded-full bg-base-700 flex-shrink-0" />
+                  <div className="flex-1 space-y-1">
+                    <div className="h-2.5 bg-base-700 rounded w-3/4" />
                   </div>
+                  <div className="h-2 bg-base-750 rounded w-8" />
                 </div>
-                <span className="text-[10px] font-mono text-base-500 flex-shrink-0">
-                  {log.duration_ms ? `${(log.duration_ms / 1000).toFixed(1)}s` : '—'}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : taskLog.length === 0 ? (
+              <p className="text-xs text-base-500 font-mono py-4 text-center">No task log entries yet</p>
+            ) : (
+              taskLog.map((log) => (
+                <div key={log.id} className="flex items-center gap-3 py-2 border-b border-base-700 last:border-0">
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${log.status === 'success' ? 'bg-green-op' : log.status === 'running' ? 'bg-electric animate-pulse' : 'bg-red-op'}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-electric">SOP {log.sop_id}</span>
+                      <span className="text-xs text-white truncate">{log.output_summary}</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-base-500 flex-shrink-0">
+                    {log.duration_ms ? `${(log.duration_ms / 1000).toFixed(1)}s` : '—'}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </Panel>
 
