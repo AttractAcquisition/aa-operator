@@ -1,111 +1,183 @@
-# AA Operator — AI-First Control Panel
+# Supabase CLI
 
-The operational command centre for Attract Acquisition. Built on Claude API + Supabase + React.
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
-## What this is
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-A fully AI-first operating system for the agency — Claude automates 38 SOPs end-to-end, assists on 16 more, and gives you a natural language interface to all live business data.
+This repository contains all the functionality for Supabase CLI.
 
-**10 modules:**
-- 🏠 Command Centre (SOP 58 — daily AI briefing)
-- 💬 AI Chat (natural language → live Supabase data)
-- ✅ Approval Queue (Claude drafts, you approve)
-- 📊 Live Pipeline (prospect-to-client funnel)
-- ⚡ Sprints (proof sprint monitoring)
-- 🕐 Cron Manager (automation schedule control)
-- 📋 SOP Control (all 58 SOPs, trigger on demand)
-- 👥 Clients (per-client workspace)
-- 💰 Finance (revenue, invoices, cash position)
-- 🔔 Alerts (Claude-flagged issues)
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
----
+## Getting started
 
-## Quick Start
+### Install the CLI
 
-### 1. Install dependencies
-```bash
-npm install
-```
-
-### 2. Set up environment variables
-```bash
-cp .env.example .env.local
-# Fill in your keys (or use Claude Code step below)
-```
-
-### 3. Run locally
-```bash
-npm run dev
-```
-
----
-
-## Connect to Production (via Claude Code)
-
-After pushing to GitHub, open Claude Code in your terminal:
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 ```bash
-# 1. Connect Supabase
-claude "connect this React app to my Supabase project and set up all required environment variables"
-
-# 2. Create Edge Functions
-claude "create all the Supabase Edge Functions defined in src/lib/supabase.ts"
-
-# 3. Create new database tables
-claude "create the 5 new database tables: ai_task_log, approval_queue, cron_schedule, knowledge_base, ai_alerts"
-
-# 4. Set up Vercel cron jobs
-claude "set up Vercel cron jobs for all the schedules in src/lib/mockData.ts"
-
-# 5. Connect Anthropic API
-claude "connect the Anthropic API and replace the mock streaming in src/lib/claude.ts with the real Edge Function"
+npm i supabase --save-dev
 ```
 
----
+To install the beta release channel:
 
-## Architecture
-
-```
-Browser (React)
-    ↓ fetch
-Supabase Edge Functions      ← Claude API (claude-sonnet-4-6)
-    ↓ SQL                         ↓ tool calls
-Supabase Postgres            ← Meta Ads API / WhatsApp API
+```bash
+npm i supabase@beta --save-dev
 ```
 
-**Automation tiers:**
-- 🟢 AUTO (38 SOPs) — Claude runs end-to-end, no input needed
-- 🟡 ASSISTED (16 SOPs) — Claude drafts → approval queue → you approve → sends
-- 🔴 HUMAN (4 SOPs) — Claude prepares brief, you execute live
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
 
----
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
 
-## Tech Stack
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
 
-| Layer | Tech |
-|-------|------|
-| Frontend | React 18 + TypeScript + Vite |
-| Styling | Tailwind CSS (dark command centre theme) |
-| State | Zustand + React Query |
-| Charts | Recharts |
-| Backend | Supabase (Postgres + Edge Functions) |
-| AI | Anthropic Claude API |
-| Cron | Vercel Cron Jobs |
-| Ads | Meta Marketing API |
-| Messaging | WhatsApp Business API |
-| Email | Resend |
+<details>
+  <summary><b>macOS</b></summary>
 
----
+  Available via [Homebrew](https://brew.sh). To install:
 
-## Cost Estimate
+  ```sh
+  brew install supabase/tap/supabase
+  ```
 
-| Service | Monthly |
-|---------|---------|
-| Anthropic API | ~£150–300 |
-| Vercel Pro | £20 |
-| Supabase Pro | £25 |
-| WhatsApp | ~£50–100 |
-| Resend | £0–20 |
-| **Total** | **~£245–445/mo** |
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
 
-Replacing a full-time operations hire at a fraction of the cost.
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+
+  Available via [Scoop](https://scoop.sh). To install:
+
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
+
+  To upgrade:
+
+  ```powershell
+  scoop update supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Linux</b></summary>
+
+  Available via [Homebrew](https://brew.sh) and Linux packages.
+
+  #### via Homebrew
+
+  To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+
+  #### via Linux packages
+
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
+
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
+
+```bash
+supabase bootstrap
+```
+
+Or using npx:
+
+```bash
+npx supabase bootstrap
+```
+
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+
+## Docs
+
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+
+## Breaking changes
+
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+
+## Developing
+
+To run from source:
+
+```sh
+# Go >= 1.22
+go run . help
+```

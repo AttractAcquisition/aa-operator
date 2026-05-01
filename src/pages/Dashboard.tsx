@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowRight, Users, Zap, DollarSign, CheckSquare,
   Bell, TrendingUp, Clock, Play, RefreshCw
@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { StatCard, Panel, SectionHeader, ProgressBar, Button, Spinner } from '@/components/ui'
 import { formatDate, formatCurrency, getHealthColor } from '@/lib/utils'
 import { useAppStore } from '@/store'
-import type { AITaskLog } from '@/types'
+import type { AITaskLog, DailyBriefing } from '@/types'
 
 const urgencyDot: Record<string, string> = {
   high: 'bg-red-op',
@@ -59,6 +59,17 @@ async function fetchKPIs(): Promise<DashboardKPIs> {
   }
 }
 
+async function fetchLatestBriefing(): Promise<DailyBriefing | null> {
+  const { data, error } = await supabase
+    .from('daily_briefings')
+    .select('briefing')
+    .order('generated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  return data.briefing as DailyBriefing
+}
+
 async function fetchRecentTaskLog(): Promise<AITaskLog[]> {
   const { data, error } = await supabase
     .from('ai_task_log')
@@ -71,9 +82,17 @@ async function fetchRecentTaskLog(): Promise<AITaskLog[]> {
 
 export function Dashboard() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { addNotification } = useAppStore()
   const [refreshing, setRefreshing] = useState(false)
-  const b = mockDailyBriefing
+
+  const { data: liveBriefing } = useQuery({
+    queryKey: ['daily_briefing'],
+    queryFn: fetchLatestBriefing,
+    refetchInterval: 1000 * 60 * 5,
+  })
+
+  const b = liveBriefing ?? mockDailyBriefing
 
   const { data: kpis, isLoading: kpisLoading } = useQuery({
     queryKey: ['dashboard_kpis'],
@@ -89,9 +108,16 @@ export function Dashboard() {
 
   const runBriefing = async () => {
     setRefreshing(true)
-    await new Promise(r => setTimeout(r, 2000))
-    setRefreshing(false)
-    addNotification('Daily briefing refreshed successfully', 'success')
+    try {
+      const { error } = await supabase.functions.invoke('sop-58-daily-briefing')
+      if (error) throw error
+      await queryClient.invalidateQueries({ queryKey: ['daily_briefing'] })
+      addNotification('Daily briefing refreshed successfully', 'success')
+    } catch {
+      addNotification('Failed to run briefing — check AI task log', 'error')
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   return (
@@ -110,6 +136,7 @@ export function Dashboard() {
           </div>
           <p className="text-xs text-base-500 font-mono ml-3">
             Briefing generated {formatDate(b.generated_at)} · SOP 58
+            {liveBriefing ? '' : ' · (mock data — run briefing to load live)'}
           </p>
         </div>
         <Button onClick={runBriefing} variant="secondary" size="sm" disabled={refreshing}>
