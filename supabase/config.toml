@@ -20,5 +20,5 @@ port = 54323
 enabled = true
 port = 54324
 
-[functions]
+[functions.claude-chat]
 verify_jwt = true
