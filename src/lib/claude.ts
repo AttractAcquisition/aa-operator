@@ -1,6 +1,12 @@
 import { supabase } from './supabase'
 import type { ChatMessage } from '@/types'
 
+// Two-tier model routing:
+// HAIKU — mechanical tasks: scraping, dedup, CRM staging, reply classification, finance rollup, backup checks
+// SONNET — generation/reasoning tasks: message drafting, document builds, analysis, briefings, chat
+export const SONNET_MODEL = 'claude-sonnet-4-6'
+export const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
+
 export interface ClaudeStreamCallbacks {
   onToken: (token: string) => void
   onToolCall: (tool: string, summary: string) => void
@@ -57,6 +63,10 @@ Business context:
 - Products: Proof Sprint (14-day paid trial), Proof Brand (monthly retainer), Authority Brand (premium tier)
 - Key metrics: CPL (cost per lead), ROAS, lead volume, conversion rates
 - 58 SOPs across 9 domains — all mapped to automation tiers
+
+Model routing (two-tier):
+- claude-haiku-4-5-20251001 handles mechanical tasks: prospect scraping (SOP 02), dedup/enrichment classification (SOP 03), CRM staging (SOP 04), reply classification (SOP 06), backup checks (SOP 52), finance rollup (SOP 56), and any tool call that only writes structured data to Supabase.
+- claude-sonnet-4-6 handles generation and reasoning: outreach drafting (SOP 01), call briefs (SOP 07), MJR builds (SOP 08), delivery sequences (SOP 10), SPOA builds (SOP 12), sprint analysis (SOP 21), ads monitoring (SOP 23), client reports (SOP 47), daily briefings (SOP 58), and all chat interface completions.
 
 Always be direct, data-driven, and actionable. When flagging issues, suggest a specific next action.
 Format responses clearly — use markdown for structure. Keep answers concise unless asked for detail.`

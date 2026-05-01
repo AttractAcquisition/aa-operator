@@ -1,8 +1,25 @@
+// Model routing: getModel(sopId) returns the correct model for each SOP.
+// Haiku (claude-haiku-4-5-20251001) — mechanical tasks: scraping, dedup, CRM staging,
+//   reply classification, backup checks, finance rollup, structured-data writes.
+// Sonnet (claude-sonnet-4-6) — generation/reasoning: message drafts, document builds,
+//   sprint analysis, ads monitoring, client reports, daily briefings.
 import Anthropic from 'npm:@anthropic-ai/sdk@0.36.3'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') })
+
+// ─── Model routing ────────────────────────────────────────────────────────────
+
+const SONNET = 'claude-sonnet-4-6'
+const HAIKU = 'claude-haiku-4-5-20251001'
+
+// SOPs that use Haiku: mechanical tasks with structured output only, no text generation.
+const HAIKU_SOPS = new Set(['02', '03', '04', '06', '52', '56'])
+
+function getModel(sopId: string): string {
+  return HAIKU_SOPS.has(sopId) ? HAIKU : SONNET
+}
 
 // ─── SOP registry ────────────────────────────────────────────────────────────
 // Defines the task instruction and tools for each automated SOP.
@@ -304,7 +321,7 @@ After completing all actions, provide a brief summary of what was done.`
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: getModel(sop_id),
         max_tokens: 2048,
         system: systemPrompt,
         messages,

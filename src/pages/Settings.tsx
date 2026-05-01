@@ -131,9 +131,8 @@ export function Settings() {
         <SectionHeader title="System Preferences" />
         <div className="space-y-3">
           {[
-            { label: 'Default Claude Model', value: 'claude-sonnet-4-6', note: 'Used for standard tasks' },
-            { label: 'Complex Task Model', value: 'claude-opus-4-6', note: 'Used for MJR, SPOA, reports' },
-            { label: 'High-Volume Model', value: 'claude-haiku-4-5', note: 'Used for dedup, classification' },
+            { label: 'Generation / Reasoning Model', value: 'claude-sonnet-4-6', note: 'SOPs 01 07 08 10 12 21 23 47 58 + chat' },
+            { label: 'Mechanical Tasks Model', value: 'claude-haiku-4-5-20251001', note: 'SOPs 02 03 04 06 52 56 — structured data only' },
             { label: 'Timezone', value: 'Europe/London', note: 'Used for cron scheduling' },
             { label: 'Principal Notification Email', value: 'Set your email', note: 'Daily briefing backup' },
           ].map(pref => (

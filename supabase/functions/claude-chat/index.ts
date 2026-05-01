@@ -1,3 +1,5 @@
+// Model: claude-sonnet-4-6 — all chat interface completions use Sonnet because
+// the chat loop requires generation, reasoning, and tool-result synthesis.
 import Anthropic from 'npm:@anthropic-ai/sdk@0.36.3'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
