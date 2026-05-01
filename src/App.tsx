@@ -41,6 +41,18 @@ export default function App() {
             <Route path="finance" element={<Finance />} />
             <Route path="alerts" element={<Alerts />} />
             <Route path="settings" element={<Settings />} />
+
+            <Route
+              path="*"
+              element={
+                <div className="min-h-screen bg-[#0B0F19] p-8 text-white">
+                  <h1 className="text-2xl font-semibold">Page not found</h1>
+                  <p className="mt-2 text-white/70">
+                    No route matched: {window.location.pathname}
+                  </p>
+                </div>
+              }
+            />
           </Route>
         </Routes>
       </BrowserRouter>
