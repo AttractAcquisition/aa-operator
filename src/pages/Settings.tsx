@@ -53,17 +53,31 @@ export function Settings() {
       {/* Connection status */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { name: 'Supabase', status: 'disconnected', action: 'Connect via Claude Code' },
-          { name: 'Anthropic API', status: 'disconnected', action: 'Add ANTHROPIC_API_KEY' },
-          { name: 'Meta Ads API', status: 'disconnected', action: 'Add META_ACCESS_TOKEN' },
-        ].map(({ name, status, action }) => (
+          {
+            name: 'Supabase',
+            connected: !import.meta.env.VITE_SUPABASE_URL?.includes('placeholder'),
+            action: 'fgyvcyksgbivhrqoxkmj',
+          },
+          {
+            name: 'Anthropic API',
+            connected: true,
+            action: 'Set as Edge Function secret',
+          },
+          {
+            name: 'Meta Ads API',
+            connected: false,
+            action: 'Add META_ACCESS_TOKEN',
+          },
+        ].map(({ name, connected, action }) => (
           <Panel key={name} className="p-3">
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-op" />
+              <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-op' : 'bg-amber-op'}`} />
               <span className="text-sm text-white font-medium">{name}</span>
             </div>
-            <p className="text-[10px] font-mono text-amber-op uppercase">{status}</p>
-            <p className="text-[10px] text-base-500 mt-1">{action}</p>
+            <p className={`text-[10px] font-mono uppercase ${connected ? 'text-green-op' : 'text-amber-op'}`}>
+              {connected ? 'connected' : 'disconnected'}
+            </p>
+            <p className="text-[10px] text-base-500 mt-1 font-mono truncate">{action}</p>
           </Panel>
         ))}
       </div>
