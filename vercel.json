@@ -1,0 +1,42 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "crons": [
+    {
+      "path": "/api/cron?sop=58",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron?sop=21",
+      "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron?sop=23",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron?sop=06",
+      "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron?sop=01",
+      "schedule": "0 8 * * 1-5"
+    },
+    {
+      "path": "/api/cron?sop=47",
+      "schedule": "0 16 * * 5"
+    },
+    {
+      "path": "/api/cron?sop=56",
+      "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/cron?sop=52",
+      "schedule": "0 1 * * 0"
+    },
+    {
+      "path": "/api/cron?sop=02",
+      "schedule": "0 8 * * 1"
+    }
+  ]
+}
