@@ -219,7 +219,6 @@ Deno.serve(async (req) => {
     }
 
     // ── 5. Kill / scale logic ─────────────────────────────────────────────────
-    const now          = new Date().toISOString()
     let pausedCount    = 0
     let scaleCount     = 0
     let alertsCreated  = 0
