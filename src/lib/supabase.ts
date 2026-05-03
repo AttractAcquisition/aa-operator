@@ -159,3 +159,16 @@ export async function createAlert(input: CreateAlertInput): Promise<AIAlert> {
   if (error) throw new Error(`createAlert: ${error.message}`)
   return data as AIAlert
 }
+
+/** Mark an alert as resolved and stamp resolved_at. */
+export async function updateAlertResolved(id: string): Promise<AIAlert> {
+  const { data, error } = await supabase
+    .from('ai_alerts')
+    .update({ resolved: true, resolved_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw new Error(`updateAlertResolved: ${error.message}`)
+  return data as AIAlert
+}
