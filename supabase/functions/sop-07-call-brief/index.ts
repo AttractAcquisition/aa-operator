@@ -8,8 +8,7 @@ const SONNET = 'claude-sonnet-4-6'
 const BATCH_LIMIT = 5
 const MAX_LOOP_ITERATIONS = 8
 
-// deno-lint-ignore no-explicit-any
-const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_uses: 5 } as any
+const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_uses: 5 } as Anthropic.Tool
 
 interface EnrichmentData {
   review_count: number | null
@@ -167,13 +166,25 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
+    // Webhook calls include { prospect_id } to process a single row immediately.
+    // Cron / manual calls omit it and fall back to the full batch query.
+    let webhookProspectId: string | null = null
+    try {
+      const body = await req.json()
+      if (typeof body?.prospect_id === 'string') webhookProspectId = body.prospect_id
+    } catch { /* no body */ }
+
     // ── 1. Fetch call_booked prospects ────────────────────────────────────────
-    const { data: rawProspects, error: fetchError } = await supabase
+    let query = supabase
       .from('prospects')
       .select('id, name, company, phone, niche, location, quality_score, enrichment_data')
       .eq('status', 'call_booked')
       .order('quality_score', { ascending: false })
       .limit(BATCH_LIMIT)
+
+    if (webhookProspectId) query = query.eq('id', webhookProspectId)
+
+    const { data: rawProspects, error: fetchError } = await query
 
     if (fetchError) throw new Error(`fetch prospects: ${fetchError.message}`)
 

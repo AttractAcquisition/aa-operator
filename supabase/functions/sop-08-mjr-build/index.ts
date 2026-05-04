@@ -8,8 +8,7 @@ const SONNET = 'claude-sonnet-4-6'
 const BATCH_LIMIT = 3
 const SIGNED_URL_TTL = 60 * 60 * 24 * 7 // 7 days
 
-// deno-lint-ignore no-explicit-any
-const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_uses: 4 } as any
+const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_uses: 4 } as Anthropic.Tool
 
 interface EnrichmentData {
   review_count: number | null
