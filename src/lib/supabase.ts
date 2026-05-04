@@ -4,6 +4,7 @@ import type {
   ApprovalItem, ApprovalType, ApprovalStatus,
   AIAlert, AlertSeverity,
   AITaskLog,
+  CronJob,
 } from '@/types'
 
 // ─── TODO: Add your Supabase credentials ────────────────────────────────────
@@ -158,6 +159,19 @@ export async function createAlert(input: CreateAlertInput): Promise<AIAlert> {
 
   if (error) throw new Error(`createAlert: ${error.message}`)
   return data as AIAlert
+}
+
+/** Flip the is_active flag on a cron_schedule row and return the updated record. */
+export async function updateCronStatus(id: string, isActive: boolean): Promise<CronJob> {
+  const { data, error } = await supabase
+    .from('cron_schedule')
+    .update({ is_active: isActive })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw new Error(`updateCronStatus: ${error.message}`)
+  return data as CronJob
 }
 
 /** Mark an alert as resolved and stamp resolved_at. */
