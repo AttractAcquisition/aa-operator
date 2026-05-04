@@ -70,12 +70,14 @@ export default {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'blink': 'blink 1.2s step-end infinite',
         'slide-in': 'slideIn 0.3s ease-out',
+        'slide-in-right': 'slideInRight 0.25s ease-out',
         'fade-up': 'fadeUp 0.4s ease-out',
         'scan': 'scan 8s linear infinite',
       },
       keyframes: {
         blink: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0' } },
         slideIn: { from: { transform: 'translateX(-12px)', opacity: '0' }, to: { transform: 'translateX(0)', opacity: '1' } },
+        slideInRight: { from: { transform: 'translateX(100%)', opacity: '0' }, to: { transform: 'translateX(0)', opacity: '1' } },
         fadeUp: { from: { transform: 'translateY(8px)', opacity: '0' }, to: { transform: 'translateY(0)', opacity: '1' } },
         scan: {
           '0%': { backgroundPosition: '0 -100%' },

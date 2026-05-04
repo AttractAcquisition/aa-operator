@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { mockPipelineCounts, mockConversionChart } from '@/lib/mockData'
 import { Panel, SectionHeader, StatCard, Button, Spinner } from '@/components/ui'
-import { TrendingUp, Users, Zap } from 'lucide-react'
+import { TrendingUp, Users, Zap, X, ArrowRight, ChevronRight } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { supabase } from '@/lib/supabase'
+import { supabase, updateProspectStatus } from '@/lib/supabase'
 import { useAppStore } from '@/store'
+import { formatRelative, formatDate, cn } from '@/lib/utils'
+import type { Prospect, ProspectStatus } from '@/types'
 
 const stages = [
   { key: 'new',         label: 'New Leads',    color: 'bg-electric' },
@@ -21,6 +23,19 @@ const stages = [
 ] as const
 
 type PipelineCounts = typeof mockPipelineCounts
+
+// Ordered next-status map for the Move Forward action
+const NEXT_STATUS: Partial<Record<ProspectStatus, ProspectStatus>> = {
+  new:          'enriched',
+  enriched:     'staged',
+  staged:       'contacted',
+  contacted:    'replied',
+  replied:      'warm',
+  warm:         'mjr_ready',
+  mjr_ready:    'mjr_sent',
+  mjr_sent:     'call_booked',
+  call_booked:  'closed',
+}
 
 // All statuses we count — matches mockPipelineCounts keys.
 const COUNT_STATUSES = Object.keys(mockPipelineCounts) as (keyof PipelineCounts)[]
@@ -85,12 +100,216 @@ async function fetchWeeklyChart(): Promise<WeekPoint[]> {
     .slice(-6)
 }
 
+async function fetchProspectsAtStage(status: string): Promise<Prospect[]> {
+  const { data, error } = await supabase
+    .from('prospects')
+    .select('id, name, company, phone, status, quality_score, created_at, last_reply_at, reply_classification, source_list, enrichment_data')
+    .eq('status', status)
+    .order('quality_score', { ascending: false })
+    .limit(50)
+  if (error) throw new Error(error.message)
+  return (data ?? []) as Prospect[]
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function QualityBadge({ score }: { score: number }) {
+  const cls = score >= 8
+    ? 'text-green-op bg-green-op/10 border-green-op/20'
+    : score >= 5
+    ? 'text-amber-op bg-amber-op/10 border-amber-op/20'
+    : 'text-red-op bg-red-op/10 border-red-op/20'
+  return (
+    <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border', cls)}>
+      {score}
+    </span>
+  )
+}
+
+function ProspectRow({
+  prospect,
+  onMove,
+  isMoving,
+}: {
+  prospect: Prospect
+  onMove: (p: Prospect) => void
+  isMoving: boolean
+}) {
+  const next = NEXT_STATUS[prospect.status]
+  const lastActivity = prospect.last_reply_at ?? prospect.created_at
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 border-b border-base-700 last:border-0 hover:bg-base-750/50 transition-colors">
+      {/* Name / company */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-white truncate">{prospect.company}</span>
+          <QualityBadge score={prospect.quality_score} />
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-[11px] text-base-500 truncate">{prospect.name}</span>
+          <span className="text-[10px] text-base-600 font-mono flex-shrink-0">
+            {formatRelative(lastActivity)}
+          </span>
+        </div>
+      </div>
+
+      {/* Move forward */}
+      {next ? (
+        <button
+          onClick={() => onMove(prospect)}
+          disabled={isMoving}
+          title={`Move to ${next}`}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-medium transition-all duration-150 bg-electric/10 text-electric border border-electric/20 hover:bg-electric/20 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+        >
+          {isMoving ? <Spinner size={10} /> : <ArrowRight size={11} />}
+          <span className="hidden sm:inline">{next.replace(/_/g, ' ')}</span>
+        </button>
+      ) : (
+        <span className="text-[10px] font-mono text-base-600 flex-shrink-0">final</span>
+      )}
+    </div>
+  )
+}
+
+function StageDrawer({
+  stage,
+  onClose,
+  onMoved,
+}: {
+  stage: { key: string; label: string; color: string }
+  onClose: () => void
+  onMoved: () => void
+}) {
+  const { addNotification } = useAppStore()
+  const queryClient = useQueryClient()
+  const [movingId, setMovingId] = useState<string | null>(null)
+
+  const { data: prospects = [], isLoading, isError } = useQuery({
+    queryKey: ['pipeline_stage_prospects', stage.key],
+    queryFn: () => fetchProspectsAtStage(stage.key),
+    staleTime: 1000 * 30,
+  })
+
+  const handleMove = async (prospect: Prospect) => {
+    const next = NEXT_STATUS[prospect.status]
+    if (!next || movingId) return
+    setMovingId(prospect.id)
+    try {
+      await updateProspectStatus(prospect.id, next)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['pipeline_counts'] }),
+        queryClient.invalidateQueries({ queryKey: ['pipeline_stage_prospects', stage.key] }),
+      ])
+      addNotification(`${prospect.company} → ${next.replace(/_/g, ' ')}`, 'success')
+      onMoved()
+    } catch (err) {
+      addNotification(
+        err instanceof Error ? err.message : 'Failed to update prospect',
+        'error',
+      )
+    } finally {
+      setMovingId(null)
+    }
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]"
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <div className="fixed right-0 top-0 h-full z-50 w-full max-w-[420px] flex flex-col bg-base-900 border-l border-base-600 shadow-2xl animate-slide-in-right">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-base-600">
+          <div>
+            <h3 className="font-display font-bold text-white text-base uppercase tracking-wide">
+              {stage.label}
+            </h3>
+            <p className="text-[11px] text-base-500 font-mono mt-0.5">
+              {isLoading ? 'Loading…' : `${prospects.length} prospect${prospects.length !== 1 ? 's' : ''}`}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded text-base-500 hover:text-white hover:bg-base-750 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Next status label */}
+        {NEXT_STATUS[stage.key as ProspectStatus] && (
+          <div className="px-5 py-2.5 bg-base-800 border-b border-base-700 flex items-center gap-2">
+            <span className="text-[11px] text-base-500 font-mono">Move Forward advances to</span>
+            <span className="text-[11px] font-mono font-bold text-electric">
+              {NEXT_STATUS[stage.key as ProspectStatus]!.replace(/_/g, ' ')}
+            </span>
+          </div>
+        )}
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex flex-col divide-y divide-base-700">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse">
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-base-700 rounded w-3/5" />
+                    <div className="h-2 bg-base-750 rounded w-2/5" />
+                  </div>
+                  <div className="w-20 h-7 bg-base-700 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : isError ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+              <p className="text-white font-medium">Failed to load prospects</p>
+              <p className="text-base-500 text-sm mt-1">Check your Supabase connection</p>
+            </div>
+          ) : prospects.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+              <p className="text-white font-medium">No prospects at this stage</p>
+              <p className="text-base-500 text-sm mt-1">They'll appear here as they move through the funnel</p>
+            </div>
+          ) : (
+            prospects.map(p => (
+              <ProspectRow
+                key={p.id}
+                prospect={p}
+                onMove={handleMove}
+                isMoving={movingId === p.id}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Footer count */}
+        {prospects.length > 0 && !isLoading && (
+          <div className="px-5 py-3 border-t border-base-600 bg-base-800">
+            <p className="text-[10px] text-base-600 font-mono">
+              Showing top {prospects.length} by quality score · last updated {formatDate(new Date().toISOString())}
+            </p>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function Pipeline() {
   const queryClient         = useQueryClient()
   const { addNotification } = useAppStore()
   const [enriching, setEnriching] = useState(false)
+  const [selectedStage, setSelectedStage] = useState<typeof stages[number] | null>(null)
+
+  const toggleStage = (stage: typeof stages[number]) =>
+    setSelectedStage(prev => prev?.key === stage.key ? null : stage)
 
   const countsQuery = useQuery({
     queryKey: ['pipeline_counts'],
@@ -138,6 +357,7 @@ export function Pipeline() {
   }
 
   return (
+    <>
     <div className="space-y-4 animate-fade-up">
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -204,12 +424,28 @@ export function Pipeline() {
           </div>
         ) : (
           <div className="space-y-2">
-            {stages.map(({ key, label, color }) => {
-              const count = counts[key]
-              const pct   = max > 0 ? Math.round((count / max) * 100) : 0
+            {stages.map((stage) => {
+              const { key, label, color } = stage
+              const count     = counts[key]
+              const pct       = max > 0 ? Math.round((count / max) * 100) : 0
+              const isActive  = selectedStage?.key === key
               return (
-                <div key={key} className="flex items-center gap-3">
-                  <span className="text-xs text-base-500 font-mono w-28 flex-shrink-0">{label}</span>
+                <button
+                  key={key}
+                  onClick={() => toggleStage(stage)}
+                  className={cn(
+                    'w-full flex items-center gap-3 rounded px-1 py-0.5 transition-all duration-150 group',
+                    isActive
+                      ? 'bg-electric/5 ring-1 ring-electric/20'
+                      : 'hover:bg-base-750/40',
+                  )}
+                >
+                  <span className={cn(
+                    'text-xs font-mono w-28 flex-shrink-0 text-left transition-colors',
+                    isActive ? 'text-electric' : 'text-base-500 group-hover:text-base-300',
+                  )}>
+                    {label}
+                  </span>
                   <div className="flex-1 h-6 bg-base-750 rounded overflow-hidden">
                     <div
                       className={`h-full rounded flex items-center pl-2 transition-all duration-700 ${color}`}
@@ -223,7 +459,14 @@ export function Pipeline() {
                   <span className="text-sm font-mono font-bold text-white w-8 text-right flex-shrink-0">
                     {count}
                   </span>
-                </div>
+                  <ChevronRight
+                    size={13}
+                    className={cn(
+                      'flex-shrink-0 transition-all duration-150',
+                      isActive ? 'text-electric rotate-90' : 'text-base-700 group-hover:text-base-500',
+                    )}
+                  />
+                </button>
               )
             })}
           </div>
@@ -262,5 +505,17 @@ export function Pipeline() {
         </div>
       </Panel>
     </div>
+
+    {/* Stage detail drawer */}
+    {selectedStage && (
+      <StageDrawer
+        stage={selectedStage}
+        onClose={() => setSelectedStage(null)}
+        onMoved={() => {
+          queryClient.invalidateQueries({ queryKey: ['pipeline_counts'] })
+        }}
+      />
+    )}
+    </>
   )
 }
