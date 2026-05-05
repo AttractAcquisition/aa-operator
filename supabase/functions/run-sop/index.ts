@@ -79,6 +79,24 @@ const SOP_REGISTRY: Record<string, { name: string; domain: string; task: string;
     task: 'Trigger the weekly prospect scraping batch. Check current pipeline volumes and identify which source lists need replenishing. Stage results for enrichment and quality scoring. Report on batch size and quality distribution.',
     tools: ['get_new_leads', 'create_alert'],
   },
+  '35': {
+    name: 'Upsell Detection',
+    domain: 'Delivery',
+    task: 'Run the weekly upsell detection scan across all active clients. For each client, score upsell readiness (0–10) based on sprint completion rate, CPL vs target, satisfaction signals, client tenure, and tier headroom. For any client scoring 8 or above with an available upsell path, create a high-priority alert with talking points and an offer_document approval item.',
+    tools: ['get_active_sprints', 'get_open_alerts', 'create_approval_item', 'create_alert'],
+  },
+  '43': {
+    name: 'Authority Brand Monthly Ops',
+    domain: 'Delivery',
+    task: 'Generate comprehensive monthly delivery reviews for all active authority_brand clients (£3,000/mo, Google + Meta + Remarketing). Cover full funnel performance, brand authority metrics, content performance, market positioning, and strategic recommendations for the next 30 days. Create a high-priority approval item per client.',
+    tools: ['get_active_sprints', 'get_open_alerts', 'create_approval_item'],
+  },
+  '31': {
+    name: 'Proof Brand Monthly Ops',
+    domain: 'Delivery',
+    task: 'Run monthly delivery status checks for all active proof_brand clients. For each client, analyse month-to-date leads vs target, CPL trend, ROAS trend, and campaign health. Score upsell readiness (1-10) and create an alert for any client scoring 8 or above. Create an approval item per client report.',
+    tools: ['get_active_sprints', 'get_open_alerts', 'create_approval_item', 'create_alert'],
+  },
   '53': {
     name: 'Performance Review & KPI Cadence',
     domain: 'Operations',
