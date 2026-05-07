@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, MessageSquare, Clock, CheckSquare, Activity,
   ListChecks, Users, BarChart2, Bell, Settings, ChevronLeft,
-  Zap, Circle, FileText
+  Zap, Circle, FileText, BookOpen
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
@@ -20,6 +20,7 @@ const nav = [
   { to: '/finance', icon: BarChart2, label: 'Finance' },
   { to: '/alerts', icon: Bell, label: 'Alerts', badge: mockDailyBriefing.open_alerts },
   { to: '/documents', icon: FileText, label: 'Documents' },
+  { to: '/knowledge-base', icon: BookOpen, label: 'Knowledge Base' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 

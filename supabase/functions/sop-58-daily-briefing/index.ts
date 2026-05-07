@@ -30,6 +30,15 @@ Deno.serve(async (req) => {
 
   const startedAt = Date.now()
 
+  // Health-check ping from sop-52 — return immediately without running the full briefing
+  const body = await req.json().catch(() => ({}))
+  if (body?.dry_run === true) {
+    return new Response(
+      JSON.stringify({ ok: true, dry_run: true }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    )
+  }
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

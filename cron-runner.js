@@ -25,14 +25,18 @@ const JOBS = [
   { sop_id: '06', name: 'Reply Triage & CRM Hygiene',          schedule: '30 7 * * *'  },
   { sop_id: '01', name: 'WhatsApp Outreach Draft Queue',       schedule: '0 8 * * 1-5' },
   { sop_id: '47', name: 'Weekly Client Reporting',             schedule: '0 17 * * 5'  },
-  { sop_id: '56', name: 'Finance Dashboard & Income Tracking', schedule: '0 6 * * 1'   },
-  { sop_id: '52', name: 'Backup & Security Check',             schedule: '0 1 * * 0'   },
+  { sop_id: '51', name: 'Admin Check',                         schedule: '30 6 * * 1', fn: 'sop-51-admin-check'       },
+  { sop_id: '56', name: 'Finance Dashboard & Income Tracking', schedule: '0 6 * * 1',  fn: 'sop-56-finance-dashboard' },
+  { sop_id: '52', name: 'Backup & Security Check',             schedule: '0 1 * * 0',  fn: 'sop-52-backup-check'     },
   { sop_id: '02', name: 'Prospect Scraper & Batch Run',        schedule: '0 8 * * 1'   },
   { sop_id: '31', name: 'Proof Brand Ops',                     schedule: '0 9 1 * *'   },
+  { sop_id: '33', name: 'SOP Versioning',                      schedule: '0 11 1 * *', fn: 'sop-33-sop-versioning'   },
   { sop_id: '43', name: 'Authority Brand Ops',                 schedule: '0 10 1 * *'  },
   { sop_id: '35', name: 'Upsell Detection',                    schedule: '0 9 * * 1'   },
   { sop_id: '26', name: 'Sprint Closeout',                     schedule: '0 7 * * *',  fn: 'sop-26-sprint-closeout'  },
   { sop_id: '41', name: 'Weekly Review',                       schedule: '0 16 * * 5', fn: 'sop-41-weekly-review'    },
+  { sop_id: '46', name: 'Billing & Payment Chase',             schedule: '30 8 * * 1', fn: 'sop-46-billing'          },
+  { sop_id: '53', name: 'Monthly KPI Review',                 schedule: '0 8 1 * *',  fn: 'sop-53-kpi-review'       },
 ]
 
 // ─── Runner ───────────────────────────────────────────────────────────────────
