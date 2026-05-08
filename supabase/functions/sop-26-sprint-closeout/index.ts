@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
 
     // ── 2. Bulk-fetch ad set performance logs for each sprint ────────────────
     const sprintIds = sprints.map(s => s.id)
-    let adLogsBySprint = new Map<string, AdSetLogRow[]>()
+    const adLogsBySprint = new Map<string, AdSetLogRow[]>()
 
     const { data: rawAdLogs, error: adLogsErr } = await supabase
       .from('ad_set_performance_logs')

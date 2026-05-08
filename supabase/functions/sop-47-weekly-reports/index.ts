@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
     console.log(`[sop-47] ${sprints.length} active sprints found`)
 
     // ── 3. Bulk-fetch 7-day sprint logs ───────────────────────────────────────
-    let logsBySprint = new Map<string, SprintLogRow[]>()
+    const logsBySprint = new Map<string, SprintLogRow[]>()
 
     if (sprintIds.length > 0) {
       const { data: rawLogs, error: logsErr } = await supabase
@@ -273,7 +273,7 @@ Deno.serve(async (req) => {
     }
 
     // ── 4. Bulk-fetch 7-day ad set performance logs ───────────────────────────
-    let adLogsBySprint = new Map<string, AdSetLogRow[]>()
+    const adLogsBySprint = new Map<string, AdSetLogRow[]>()
 
     if (sprintIds.length > 0) {
       const { data: rawAdLogs, error: adLogsErr } = await supabase

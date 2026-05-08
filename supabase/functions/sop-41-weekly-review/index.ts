@@ -55,11 +55,6 @@ interface AlertRow {
   created_at:       string
 }
 
-interface ProspectCount {
-  status: string
-  count:  number
-}
-
 interface ApprovalRow {
   status:       string
   priority:     string | null
@@ -84,7 +79,7 @@ function weekLabel(from: Date, to: Date): string {
 
 // ─── Claude synthesis ─────────────────────────────────────────────────────────
 
-async function synthesise(context: string, now: string): Promise<Record<string, unknown>> {
+async function synthesise(context: string): Promise<Record<string, unknown>> {
   const response = await anthropic.messages.create({
     model:      SONNET,
     max_tokens: 2500,
@@ -368,7 +363,7 @@ ${alertLines}
 
     // ── 4. Claude synthesis ───────────────────────────────────────────────────
 
-    const briefing = await synthesise(context, nowISO)
+    const briefing = await synthesise(context)
 
     // Ensure numeric fields are hard-set from ground-truth data, not hallucinated
     ;(briefing as Record<string, unknown>).pipeline_progress = {
