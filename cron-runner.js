@@ -28,7 +28,7 @@ const JOBS = [
   { sop_id: '51', name: 'Admin Check',                         schedule: '30 6 * * 1', fn: 'sop-51-admin-check'       },
   { sop_id: '56', name: 'Finance Dashboard & Income Tracking', schedule: '0 6 * * 1',  fn: 'sop-56-finance-dashboard' },
   { sop_id: '52', name: 'Backup & Security Check',             schedule: '0 1 * * 0',  fn: 'sop-52-backup-check'     },
-  { sop_id: '02', name: 'Prospect Scraper & Batch Run',        schedule: '0 8 * * 1'   },
+  { sop_id: '02', name: 'Prospect Scraper & Batch Run',        schedule: '0 8 * * 1',  fn: 'sop-02-prospect-scraper' },
   { sop_id: '31', name: 'Proof Brand Ops',                     schedule: '0 9 1 * *'   },
   { sop_id: '33', name: 'SOP Versioning',                      schedule: '0 11 1 * *', fn: 'sop-33-sop-versioning'   },
   { sop_id: '43', name: 'Authority Brand Ops',                 schedule: '0 10 1 * *'  },

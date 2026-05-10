@@ -1,57 +1,75 @@
 // Model: claude-sonnet-4-6 — personalised WhatsApp outreach draft generation.
+//
+// For each staged prospect:
+//   1. Drafts a personalised WhatsApp message via Sonnet.
+//   2. Looks up (or creates) a whatsapp_conversations row for the prospect.
+//   3. Inserts one whatsapp_outreach_queue row per message for operator review.
+//
+// whatsapp_outreach_queue is for cold first-touch outreach batches.
+// whatsapp_ai_suggestions is for AI reply drafts on warm in-progress conversations
+// (written by the Conversations UI, not this SOP).
 import Anthropic from 'npm:@anthropic-ai/sdk@0.36.3'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { checkSuppression } from '../_shared/suppression.ts'
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') })
-const SONNET = 'claude-sonnet-4-6'
+const SONNET      = 'claude-sonnet-4-6'
 const BATCH_LIMIT = 25
+const SOP_ID      = '01'
+const SOP_NAME    = 'SOP 01 — WhatsApp Outreach Drafts'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface EnrichmentData {
-  review_count: number | null
+  review_count:  number | null
   trading_since: string | null
-  has_website: boolean
-  niche_fit: boolean
-  summary: string
-  sources: string[]
+  has_website:   boolean
+  niche_fit:     boolean
+  summary:       string
+  sources:       string[]
 }
 
 interface ProspectRow {
-  id: string
-  name: string
-  company: string
-  phone: string | null
-  niche: string | null
-  location: string | null
-  quality_score: number
+  id:              string
+  name:            string
+  company:         string
+  phone:           string | null
+  niche:           string | null
+  location:        string | null
+  quality_score:   number
   enrichment_data: EnrichmentData | null
 }
 
 interface DraftedMessage {
   prospect_id: string
-  name: string
-  company: string
-  phone: string | null
-  message: string
+  prospect:    ProspectRow
+  message:     string
 }
 
+interface ConversationRow {
+  id:          string
+  prospect_id: string | null
+}
+
+// ─── Draft generation ─────────────────────────────────────────────────────────
+
 async function draftMessages(prospects: ProspectRow[]): Promise<DraftedMessage[]> {
-  // Strip fields Claude doesn't need (sources, raw urls) to keep the prompt compact
   const context = prospects.map(p => ({
-    id: p.id,
-    name: p.name,
-    company: p.company,
-    niche: p.niche ?? 'local business',
-    location: p.location ?? null,
-    quality_score: p.quality_score,
-    trading_since: p.enrichment_data?.trading_since ?? null,
-    review_count: p.enrichment_data?.review_count ?? null,
-    has_website: p.enrichment_data?.has_website ?? null,
-    business_summary: p.enrichment_data?.summary ?? null,
+    id:               p.id,
+    name:             p.name,
+    company:          p.company,
+    niche:            p.niche ?? 'local business',
+    location:         p.location ?? null,
+    quality_score:    p.quality_score,
+    trading_since:    p.enrichment_data?.trading_since ?? null,
+    review_count:     p.enrichment_data?.review_count  ?? null,
+    has_website:      p.enrichment_data?.has_website   ?? null,
+    business_summary: p.enrichment_data?.summary       ?? null,
   }))
 
   const response = await anthropic.messages.create({
-    model: SONNET,
+    model:      SONNET,
     max_tokens: 4096,
     system: [{ type: 'text', text: [
       'You write personalised WhatsApp cold outreach messages for Attract Acquisition,',
@@ -72,14 +90,11 @@ async function draftMessages(prospects: ProspectRow[]): Promise<DraftedMessage[]
       'Return ONLY a valid JSON array — no markdown fences, no explanation:',
       '[{"prospect_id":"<uuid>","message":"<WhatsApp message text>"}]',
     ].join('\n'), cache_control: { type: 'ephemeral' } }],
-    messages: [
-      {
-        role: 'user',
-        content:
-          `Draft personalised WhatsApp outreach messages for these ${prospects.length} prospects:\n\n` +
-          JSON.stringify(context, null, 2),
-      },
-    ],
+    messages: [{
+      role:    'user',
+      content: `Draft personalised WhatsApp outreach messages for these ${prospects.length} prospects:\n\n` +
+               JSON.stringify(context, null, 2),
+    }],
   })
 
   const raw = response.content
@@ -93,22 +108,18 @@ async function draftMessages(prospects: ProspectRow[]): Promise<DraftedMessage[]
 
   const drafts = JSON.parse(jsonMatch[0]) as Array<{ prospect_id: string; message: string }>
 
-  // Only keep drafts whose IDs come from the actual fetch — guard against hallucinated IDs
   const prospectMap = new Map(prospects.map(p => [p.id, p]))
 
   return drafts
     .filter(d => prospectMap.has(d.prospect_id))
-    .map(d => {
-      const p = prospectMap.get(d.prospect_id)!
-      return {
-        prospect_id: d.prospect_id,
-        name: p.name,
-        company: p.company,
-        phone: p.phone,
-        message: d.message,
-      }
-    })
+    .map(d => ({
+      prospect_id: d.prospect_id,
+      prospect:    prospectMap.get(d.prospect_id)!,
+      message:     d.message,
+    }))
 }
+
+// ─── Main handler ─────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -142,70 +153,138 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── 2. Generate personalised messages via Sonnet ──────────────────────────
-    const drafted = await draftMessages(prospects)
+    // ── 2. Suppression check — filter before spending any Claude tokens ────────
+    // All phone lookups run concurrently against the indexed suppression list.
+    const suppressionResults = await Promise.all(
+      prospects.map(p => checkSuppression(p.phone ?? '', supabase)),
+    )
+
+    const suppressedProspects  = prospects.filter((_, i) => suppressionResults[i])
+    const unsuppressedProspects = prospects.filter((_, i) => !suppressionResults[i])
+    const suppressedCount      = suppressedProspects.length
+
+    if (suppressedCount > 0) {
+      console.log(
+        `[${SOP_NAME}] ${suppressedCount} suppressed number(s) skipped: ` +
+        suppressedProspects.map(p => p.phone ?? p.company).join(', '),
+      )
+    }
+
+    if (unsuppressedProspects.length === 0) {
+      return new Response(
+        JSON.stringify({
+          message:    'All staged prospects are on the suppression list — nothing to draft',
+          drafted:    0,
+          suppressed: suppressedCount,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // ── 3. Generate personalised messages via Sonnet ──────────────────────────
+    const drafted = await draftMessages(unsuppressedProspects)
 
     if (drafted.length === 0) {
       throw new Error('Sonnet returned no valid drafted messages')
     }
 
-    const draftedIds = drafted.map(d => d.prospect_id)
+    // ── 4. Resolve conversations — one per prospect ───────────────────────────
+    // Batch fetch existing conversations for all drafted prospect IDs.
+    const draftedProspectIds = drafted.map(d => d.prospect_id)
 
-    // ── 3. Mark successfully drafted prospects as draft_ready ─────────────────
+    const { data: existingConvs, error: convFetchError } = await supabase
+      .from('whatsapp_conversations')
+      .select('id, prospect_id')
+      .in('prospect_id', draftedProspectIds)
+
+    if (convFetchError) throw new Error(`fetch conversations: ${convFetchError.message}`)
+
+    const convMap = new Map(
+      ((existingConvs ?? []) as ConversationRow[]).map(c => [c.prospect_id!, c.id]),
+    )
+
+    // Create conversations for prospects that don't have one yet
+    const prospectsNeedingConv = drafted.filter(d => !convMap.has(d.prospect_id))
+
+    if (prospectsNeedingConv.length > 0) {
+      const newConvRows = prospectsNeedingConv.map(d => ({
+        prospect_id: d.prospect_id,
+        phone:       d.prospect.phone ?? '',
+        source:      'outreach_campaign',
+        stage:       'new',
+        status:      'open',
+      }))
+
+      const { data: createdConvs, error: convInsertError } = await supabase
+        .from('whatsapp_conversations')
+        .insert(newConvRows)
+        .select('id, prospect_id')
+
+      if (convInsertError) throw new Error(`create conversations: ${convInsertError.message}`)
+
+      for (const c of (createdConvs ?? []) as ConversationRow[]) {
+        if (c.prospect_id) convMap.set(c.prospect_id, c.id)
+      }
+    }
+
+    // ── 5. Insert one whatsapp_outreach_queue row per drafted message ─────────
+    const batchDate  = new Date().toISOString().slice(0, 10)
+    const batchLabel = `Outreach Batch — ${batchDate}`
+
+    const queueRows = drafted.map(d => ({
+      batch_date:      batchDate,
+      batch_label:     batchLabel,
+      prospect_id:     d.prospect_id,
+      conversation_id: convMap.get(d.prospect_id) ?? null,
+      phone_number:    d.prospect.phone ?? '',
+      contact_name:    d.prospect.name,
+      company_name:    d.prospect.company,
+      drafted_message: d.message,
+      quality_score:   d.prospect.quality_score,
+      status:          'pending_review',
+    }))
+
+    const { data: insertedRows, error: queueError } = await supabase
+      .from('whatsapp_outreach_queue')
+      .insert(queueRows)
+      .select('id')
+
+    if (queueError) throw new Error(`insert outreach queue: ${queueError.message}`)
+
+    // ── 6. Mark drafted prospects as draft_ready ──────────────────────────────
     const { error: updateError } = await supabase
       .from('prospects')
       .update({ status: 'draft_ready' })
-      .in('id', draftedIds)
+      .in('id', draftedProspectIds)
 
     if (updateError) throw new Error(`update prospect status: ${updateError.message}`)
 
-    // ── 4. Create one approval_queue item for the whole batch ─────────────────
-    const batchDate = new Date().toISOString().slice(0, 10)
-    const batchTitle = `WhatsApp Outreach Batch — ${batchDate} — ${drafted.length} drafts`
+    // ── 7. Audit log ──────────────────────────────────────────────────────────
+    const queueCount   = (insertedRows ?? []).length
+    const newConvCount = prospectsNeedingConv.length
 
-    const { data: approvalRow, error: approvalError } = await supabase
-      .from('approval_queue')
-      .insert({
-        sop_id: '01',
-        sop_name: 'SOP 01 — WhatsApp Outreach Drafts',
-        status: 'pending',
-        priority: 'high',
-        content_type: 'whatsapp_message',
-        content_id: crypto.randomUUID(),
-        content: {
-          title: batchTitle,
-          body: `${drafted.length} personalised WhatsApp messages ready for review and sending.`,
-          messages: drafted,
-          metadata: {
-            batch_date: batchDate,
-            count: drafted.length,
-            prospect_ids: draftedIds,
-          },
-        },
-      })
-      .select('id')
-      .single()
+    const suppressedNote = suppressedCount > 0
+      ? ` · ${suppressedCount} suppressed (skipped)`
+      : ''
 
-    if (approvalError) throw new Error(`create approval item: ${approvalError.message}`)
-
-    // ── 5. Audit log ──────────────────────────────────────────────────────────
     await supabase.from('ai_task_log').insert({
-      sop_id: '01',
-      sop_name: 'SOP 01 — WhatsApp Outreach Drafts',
-      tool_called: SONNET,
-      status: 'success',
-      duration_ms: Date.now() - startedAt,
-      input_summary: `${prospects.length} staged prospects`,
-      output_summary:
-        `${drafted.length} messages drafted, 1 approval item created (${approvalRow?.id})`,
+      sop_id:         SOP_ID,
+      sop_name:       SOP_NAME,
+      tool_called:    SONNET,
+      status:         'success',
+      duration_ms:    Date.now() - startedAt,
+      input_summary:  `${prospects.length} staged prospects (${suppressedCount} suppressed)`,
+      output_summary: `${queueCount} messages queued in "${batchLabel}" · ${newConvCount} new conversations created · ${drafted.length} prospects → draft_ready${suppressedNote}`,
     })
 
     return new Response(
       JSON.stringify({
-        drafted: drafted.length,
-        approval_queue_id: approvalRow?.id,
-        batch_date: batchDate,
-        messages: drafted,
+        drafted:               drafted.length,
+        suppressed:            suppressedCount,
+        queue_inserted:        queueCount,
+        conversations_created: newConvCount,
+        batch_date:            batchDate,
+        batch_label:           batchLabel,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
@@ -218,12 +297,12 @@ Deno.serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       )
       await supabase.from('ai_task_log').insert({
-        sop_id: '01',
-        sop_name: 'SOP 01 — WhatsApp Outreach Drafts',
-        tool_called: SONNET,
-        status: 'failure',
-        duration_ms: Date.now() - startedAt,
-        input_summary: 'staged prospects batch',
+        sop_id:         SOP_ID,
+        sop_name:       SOP_NAME,
+        tool_called:    SONNET,
+        status:         'failure',
+        duration_ms:    Date.now() - startedAt,
+        input_summary:  'staged prospects batch',
         output_summary: `Error: ${message}`,
       })
     } catch { /* ignore logging failure */ }

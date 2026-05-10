@@ -12,7 +12,7 @@ interface WaMessage {
   id: string
   prospect_id: string
   direction: 'inbound' | 'outbound'
-  body: string
+  message_body: string
   created_at: string
   status?: string
 }
@@ -67,10 +67,10 @@ const MOCK_THREADS: Thread[] = [
       status: 'warm', niche: 'roofing', quality_score: 8.2, phone: '+447700900001',
     },
     messages: [
-      { id: 'mm1', prospect_id: 'mp1', direction: 'outbound', body: 'Hi James, I came across Mitchell Roofing — impressive reviews. I help local roofing companies generate 20–40 qualified leads/month through targeted Facebook and Google ads. Would a quick 15-min call be worthwhile?', created_at: daysAgo(5), status: 'read' },
-      { id: 'mm2', prospect_id: 'mp1', direction: 'inbound',  body: "Hi, yeah we're always looking for more work. What sort of leads are we talking?", created_at: daysAgo(4) },
-      { id: 'mm3', prospect_id: 'mp1', direction: 'outbound', body: 'Homeowners in your area actively searching for roofing quotes — not generic form fills. We run a 14-day proof sprint so you see results before committing to anything. Average CPL £18–£25 for roofing. Interested?', created_at: daysAgo(4), status: 'read' },
-      { id: 'mm4', prospect_id: 'mp1', direction: 'inbound',  body: 'Yeah sounds good, happy to jump on a call this week', created_at: hoursAgo(2) },
+      { id: 'mm1', prospect_id: 'mp1', direction: 'outbound', message_body: 'Hi James, I came across Mitchell Roofing — impressive reviews. I help local roofing companies generate 20–40 qualified leads/month through targeted Facebook and Google ads. Would a quick 15-min call be worthwhile?', created_at: daysAgo(5), status: 'read' },
+      { id: 'mm2', prospect_id: 'mp1', direction: 'inbound',  message_body: "Hi, yeah we're always looking for more work. What sort of leads are we talking?", created_at: daysAgo(4) },
+      { id: 'mm3', prospect_id: 'mp1', direction: 'outbound', message_body: 'Homeowners in your area actively searching for roofing quotes — not generic form fills. We run a 14-day proof sprint so you see results before committing to anything. Average CPL £18–£25 for roofing. Interested?', created_at: daysAgo(4), status: 'read' },
+      { id: 'mm4', prospect_id: 'mp1', direction: 'inbound',  message_body: 'Yeah sounds good, happy to jump on a call this week', created_at: hoursAgo(2) },
     ],
     last_message: 'Yeah sounds good, happy to jump on a call this week',
     last_at: hoursAgo(2),
@@ -83,8 +83,8 @@ const MOCK_THREADS: Thread[] = [
       status: 'replied', niche: 'electrical', quality_score: 7.4, phone: '+447700900002',
     },
     messages: [
-      { id: 'mm5', prospect_id: 'mp2', direction: 'outbound', body: 'Hi Sarah, I help local electricians fill their job pipeline with qualified leads. Would you be open to a quick chat?', created_at: daysAgo(3), status: 'read' },
-      { id: 'mm6', prospect_id: 'mp2', direction: 'inbound',  body: "Hi, we're pretty busy at the moment but always open to more commercial work", created_at: daysAgo(2) },
+      { id: 'mm5', prospect_id: 'mp2', direction: 'outbound', message_body: 'Hi Sarah, I help local electricians fill their job pipeline with qualified leads. Would you be open to a quick chat?', created_at: daysAgo(3), status: 'read' },
+      { id: 'mm6', prospect_id: 'mp2', direction: 'inbound',  message_body: "Hi, we're pretty busy at the moment but always open to more commercial work", created_at: daysAgo(2) },
     ],
     last_message: "Hi, we're pretty busy at the moment but always open to more commercial work",
     last_at: daysAgo(2),
@@ -97,9 +97,9 @@ const MOCK_THREADS: Thread[] = [
       status: 'cold', niche: 'plumbing', quality_score: 6.1, phone: '+447700900003',
     },
     messages: [
-      { id: 'mm7', prospect_id: 'mp3', direction: 'outbound', body: 'Hi Dan, saw your Google listing — strong reviews. I help plumbing companies get consistent leads through paid ads. Worth a chat?', created_at: daysAgo(7), status: 'read' },
-      { id: 'mm8', prospect_id: 'mp3', direction: 'inbound',  body: 'Not really looking at the moment cheers', created_at: daysAgo(6) },
-      { id: 'mm9', prospect_id: 'mp3', direction: 'outbound', body: "No worries at all Dan. I'll check back in a couple of months — good luck with the summer busy period.", created_at: daysAgo(6), status: 'read' },
+      { id: 'mm7', prospect_id: 'mp3', direction: 'outbound', message_body: 'Hi Dan, saw your Google listing — strong reviews. I help plumbing companies get consistent leads through paid ads. Worth a chat?', created_at: daysAgo(7), status: 'read' },
+      { id: 'mm8', prospect_id: 'mp3', direction: 'inbound',  message_body: 'Not really looking at the moment cheers', created_at: daysAgo(6) },
+      { id: 'mm9', prospect_id: 'mp3', direction: 'outbound', message_body: "No worries at all Dan. I'll check back in a couple of months — good luck with the summer busy period.", created_at: daysAgo(6), status: 'read' },
     ],
     last_message: 'No worries at all Dan. I\'ll check back in a couple of months…',
     last_at: daysAgo(6),
@@ -112,8 +112,8 @@ const MOCK_THREADS: Thread[] = [
       status: 'not_interested', niche: 'landscaping', quality_score: 5.8, phone: '+447700900004',
     },
     messages: [
-      { id: 'mm10', prospect_id: 'mp4', direction: 'outbound', body: 'Hi Lisa, I help local landscaping businesses get more enquiries. Would you be open to a quick chat?', created_at: daysAgo(10), status: 'read' },
-      { id: 'mm11', prospect_id: 'mp4', direction: 'inbound',  body: 'Please don\'t message me again', created_at: daysAgo(9) },
+      { id: 'mm10', prospect_id: 'mp4', direction: 'outbound', message_body: 'Hi Lisa, I help local landscaping businesses get more enquiries. Would you be open to a quick chat?', created_at: daysAgo(10), status: 'read' },
+      { id: 'mm11', prospect_id: 'mp4', direction: 'inbound',  message_body: 'Please don\'t message me again', created_at: daysAgo(9) },
     ],
     last_message: 'Please don\'t message me again',
     last_at: daysAgo(9),
@@ -129,7 +129,7 @@ async function fetchThreads(): Promise<Thread[]> {
 
   const { data: msgs, error: msgErr } = await supabase
     .from('whatsapp_messages')
-    .select('id, prospect_id, direction, body, created_at, status')
+    .select('id, prospect_id, direction, message_body, created_at, status')
     .gte('created_at', cutoff)
     .order('created_at', { ascending: true })
     .limit(2000)
@@ -172,7 +172,7 @@ async function fetchThreads(): Promise<Thread[]> {
       return {
         prospect,
         messages: sorted,
-        last_message: last.body.slice(0, 80),
+        last_message: last.message_body.slice(0, 80),
         last_at: last.created_at,
         last_direction: last.direction,
         unread,
@@ -185,7 +185,7 @@ async function fetchThreads(): Promise<Thread[]> {
 
 async function callGenerateReply(thread: Thread): Promise<string> {
   const history = thread.messages
-    .map(m => `${m.direction === 'inbound' ? thread.prospect.name : 'AA Operator'}: ${m.body}`)
+    .map(m => `${m.direction === 'inbound' ? thread.prospect.name : 'AA Operator'}: ${m.message_body}`)
     .join('\n')
 
   const prompt = [
@@ -293,7 +293,7 @@ function MsgBubble({ msg, prospectName }: { msg: WaMessage; prospectName: string
             ? 'bg-electric/15 border border-electric/25 text-white rounded-br-sm'
             : 'bg-base-750 border border-base-600 text-base-200 rounded-bl-sm',
         )}>
-          {msg.body}
+          {msg.message_body}
         </div>
         <div className={cn('flex items-center gap-1.5', isOut && 'flex-row-reverse')}>
           <span className="text-[10px] font-mono text-base-600">{formatDate(msg.created_at)}</span>

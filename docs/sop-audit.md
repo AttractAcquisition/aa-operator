@@ -1,6 +1,6 @@
 # SOP Coverage Audit
 
-**Generated:** 2026-05-10  
+**Generated:** 2026-05-10 · **Updated:** 2026-05-10 (SOP 02 DEPLOYED, Gap 1 resolved)  
 **Sources cross-referenced:**
 - `supabase/functions/` — 31 directories (27 SOP functions + `run-sop` dispatcher + `claude-chat` + `meta-ads-sync`)
 - `src/lib/mockData.ts` — `mockSOPs` array (15 entries, UI display list)
@@ -14,8 +14,8 @@
 | Metric | Count |
 |--------|-------|
 | Total SOPs in system | **28** |
-| Deployed (dedicated Edge Function) | **27** |
-| Partial (scheduled but no dedicated function) | **1** (SOP 02) |
+| Deployed (dedicated Edge Function) | **28** |
+| Partial (scheduled but no dedicated function) | **0** |
 | Missing (no implementation) | **0** |
 | Scheduled via Railway cron | **18** |
 | Scheduled via Vercel cron | **9** |
@@ -35,7 +35,7 @@
 | SOP # | Name | Edge Function | Schedule | Model | Domain | Tier | Status |
 |------:|------|---------------|----------|-------|--------|------|--------|
 | **01** | WhatsApp Outreach Draft Queue | `sop-01-outreach-drafts` | Weekdays 08:00 (Railway) | Sonnet 4.6 | Distribution | ASSISTED | ✅ DEPLOYED |
-| **02** | Prospect Scraper & Batch Run | ~~no dedicated fn~~ `run-sop` | Monday 08:00 (Railway + Vercel) | Haiku 4.5 | Distribution | AUTO | ⚠️ PARTIAL |
+| **02** | Prospect Scraper & Batch Run | `sop-02-prospect-scraper` | Monday 08:00 (Railway) | Haiku 4.5 | Distribution | AUTO | ✅ DEPLOYED |
 | **03** | Prospect Enrichment, QA & Dedup | `sop-03-enrichment` | ON DEMAND | Haiku 4.5 | Distribution | AUTO | ✅ DEPLOYED |
 | **04** | Prospect Import & CRM Staging | `sop-04-crm-staging` | ON DEMAND | Haiku 4.5 | Distribution | AUTO | ✅ DEPLOYED |
 | **05** | Lead Sourcing & List QA | `sop-05-lead-sourcing` | ON DEMAND | Sonnet 4.6 | Distribution | AUTO | ✅ DEPLOYED |
@@ -67,19 +67,16 @@
 
 ## Gaps & Issues
 
-### ⚠️ GAP 1 — SOP 02 has no dedicated Edge Function
+### ✅ GAP 1 — RESOLVED: `sop-02-prospect-scraper` built
 
-**SOP 02 — Prospect Scraper & Batch Run** is scheduled in both `cron-runner.js` (Monday 08:00) and `vercel.json`, and it appears in the `mockSOPs` UI list, but no `sop-02-*` Edge Function directory exists. It currently falls through to the generic `run-sop` dispatcher, which has no scraper implementation.
+`supabase/functions/sop-02-prospect-scraper/index.ts` is now deployed. It supports two intake modes:
 
-```
-Expected:  supabase/functions/sop-02-prospect-scraper/index.ts
-Found:     (nothing)
-Scheduled: cron-runner.js — sop_id '02', Monday 08:00
-mockSOPs:  tier: AUTO, model: claude-haiku-4-5-20251001
-           tools: trigger_scraper_run, stage_batch_results
-```
+- **Scraper mode** — if `SCRAPER_API_URL` env var is set, POSTs `{source_list, niche, location}` to the external scraping service and processes the JSON response.
+- **Manual mode** — if no scraper is wired, accepts a `rows: ProspectInput[]` array in the POST body (CSV upload path).
 
-**Recommended action:** Build `sop-02-prospect-scraper` — fetch from an external source (Checkatrade/Yell scraper or a third-party API), insert raw rows into `prospect_batches`, invoke `sop-03-enrichment` to continue the pipeline.
+Both modes normalise phone numbers (E.164/UK), clean company names via Haiku, deduplicate against existing prospects (by phone OR company+niche), and insert new rows with `status='new'`. The existing `prospect_new_insert_webhook` Postgres trigger fires `sop-03-enrichment` automatically for each inserted row.
+
+`cron-runner.js` updated to call `fn: 'sop-02-prospect-scraper'` directly (no longer routes through the generic `run-sop` dispatcher).
 
 ---
 
