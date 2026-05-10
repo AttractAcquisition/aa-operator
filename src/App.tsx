@@ -14,6 +14,8 @@ import { Alerts } from '@/pages/Alerts'
 import { Settings } from '@/pages/Settings'
 import { Documents } from '@/pages/Documents'
 import { KnowledgeBase } from '@/pages/KnowledgeBase'
+import { Analytics } from '@/pages/Analytics'
+import { Conversations } from '@/pages/Conversations'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +36,7 @@ export default function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="chat" element={<Chat />} />
+            <Route path="conversations" element={<Conversations />} />
             <Route path="approvals" element={<ApprovalQueue />} />
             <Route path="crons" element={<CronManager />} />
             <Route path="sprints" element={<Sprints />} />
@@ -44,6 +47,7 @@ export default function App() {
             <Route path="alerts" element={<Alerts />} />
             <Route path="documents" element={<Documents />} />
             <Route path="knowledge-base" element={<KnowledgeBase />} />
+            <Route path="analytics" element={<Analytics />} />
             <Route path="settings" element={<Settings />} />
 
             <Route

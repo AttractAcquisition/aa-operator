@@ -59,7 +59,7 @@ async function generateSummary(report: Omit<HealthReport, 'summary'>): Promise<s
   const response = await anthropic.messages.create({
     model:      HAIKU,
     max_tokens: 200,
-    system:     'You are a system reliability engineer. Given a health check report, write a single concise paragraph (max 3 sentences) summarising the system status, highlighting any failures, and stating the recommended action. Output plain text only.',
+    system: [{ type: 'text', text: 'You are a system reliability engineer. Given a health check report, write a single concise paragraph (max 3 sentences) summarising the system status, highlighting any failures, and stating the recommended action. Output plain text only.', cache_control: { type: 'ephemeral' } }],
     messages:   [{ role: 'user', content: `Health check results (${report.failure_count} failure(s)):\n\n${lines}` }],
   })
 

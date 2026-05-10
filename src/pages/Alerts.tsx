@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle, AlertTriangle, Info, X } from 'lucide-react'
-import { mockAlerts } from '@/lib/mockData'
 import { Panel, SeverityBadge, EmptyState, Spinner } from '@/components/ui'
 import { formatRelative, cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
@@ -35,9 +34,7 @@ export function Alerts() {
     refetchInterval: 1000 * 60 * 2,
   })
 
-  // Fall back to mock data until Supabase is connected
-  const alerts = (data && data.length > 0 ? data : mockAlerts) as AIAlert[]
-  const isLive = data && data.length > 0
+  const alerts = (data ?? []) as AIAlert[]
 
   const resolveMutation = useMutation({
     mutationFn: updateAlertResolved,
@@ -77,7 +74,7 @@ export function Alerts() {
           <p className="text-xs text-base-500 font-mono mt-0.5">
             {isLoading
               ? 'Loading…'
-              : `${critical} critical · ${warnings} warnings · ${info} info${isLive ? '' : ' · mock data'}`}
+              : `${critical} critical · ${warnings} warnings · ${info} info`}
           </p>
         </div>
         {isLoading && <Spinner size={16} />}
@@ -85,7 +82,7 @@ export function Alerts() {
 
       {error && (
         <Panel className="p-3 border-red-op/30 bg-red-op/5">
-          <p className="text-xs text-red-op font-mono">Failed to load alerts — showing cached mock data</p>
+          <p className="text-xs text-red-op font-mono">Failed to load alerts — check Supabase connection</p>
         </Panel>
       )}
 

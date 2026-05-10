@@ -141,7 +141,7 @@ async function researchAndAssessTier(prospect: ProspectRow): Promise<TierAssessm
     const response = await anthropic.messages.create({
       model: SONNET,
       max_tokens: 2048,
-      system: systemPrompt,
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       tools: [WEB_SEARCH_TOOL],
       messages,
     })
@@ -178,7 +178,7 @@ async function generateOfferDocument(
   const response = await anthropic.messages.create({
     model: SONNET,
     max_tokens: 16000,
-    system: [
+    system: [{ type: 'text', text: [
       'You are a senior copywriter and strategist at Attract Acquisition.',
       'Generate a complete, self-contained HTML offer document for a prospect.',
       '',
@@ -197,7 +197,7 @@ async function generateOfferDocument(
       '      9. Next Steps: two CTA sentences for the call.',
       '  — Tone: confident, specific, peer-to-peer. No fluff. Numbers where possible.',
       '  — Output ONLY the complete HTML — no markdown fences, no commentary.',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role: 'user',
@@ -234,7 +234,7 @@ async function generateOfferDocument(
           }, null, 2),
           '',
           'Generate the complete HTML offer document now.',
-        ].join('\n'),
+        ].join('\n'), cache_control: { type: 'ephemeral' } }],
       },
     ],
   })
@@ -262,7 +262,7 @@ async function generateCallPrepSummary(
   const response = await anthropic.messages.create({
     model: SONNET,
     max_tokens: 8000,
-    system: [
+    system: [{ type: 'text', text: [
       'You are a senior strategist at Attract Acquisition preparing a sales call.',
       'Generate a compact, one-page HTML call prep cheat sheet for the salesperson.',
       '',
@@ -279,7 +279,7 @@ async function generateCallPrepSummary(
       '      6. Likely Objections: 3 objection → response pairs (compact, 1–2 sentences each).',
       '      7. Closing Move: one recommended closing question or trial-close.',
       '  — Output ONLY the complete HTML — no markdown fences, no commentary.',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role: 'user',
@@ -313,7 +313,7 @@ async function generateCallPrepSummary(
           }, null, 2),
           '',
           'Generate the one-page call prep summary now.',
-        ].join('\n'),
+        ].join('\n'), cache_control: { type: 'ephemeral' } }],
       },
     ],
   })

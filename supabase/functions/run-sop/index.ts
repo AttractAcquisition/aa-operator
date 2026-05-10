@@ -341,7 +341,7 @@ After completing all actions, provide a brief summary of what was done.`
       const response = await anthropic.messages.create({
         model: getModel(sop_id),
         max_tokens: 2048,
-        system: systemPrompt,
+        system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
         messages,
         tools,
       })

@@ -104,7 +104,7 @@ async function reviewSop(entry: KBSop, stats: SopStats): Promise<ClaudeReview> {
   const response = await anthropic.messages.create({
     model:      SONNET,
     max_tokens: 800,
-    system: [
+    system: [{ type: 'text', text: [
       'You are a senior automation engineer reviewing Standard Operating Procedures for Attract Acquisition, a paid advertising agency.',
       'Analyse the SOP instructions and its 30-day execution performance, then suggest concrete improvements.',
       '',
@@ -118,7 +118,7 @@ async function reviewSop(entry: KBSop, stats: SopStats): Promise<ClaudeReview> {
       'missing edge-case handling, unclear instructions that may cause mis-execution, and dependency risks.',
       '',
       'Output ONLY valid JSON — no markdown fences, no explanation.',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [{
       role:    'user',
       content: `SOP: ${entry.title}\n\nPERFORMANCE (last 30 days):\n${perfBlock}\n\nSOP INSTRUCTIONS:\n${contentPreview}`,

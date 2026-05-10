@@ -83,7 +83,7 @@ async function synthesise(context: string): Promise<Record<string, unknown>> {
   const response = await anthropic.messages.create({
     model:      SONNET,
     max_tokens: 2500,
-    system: [
+    system: [{ type: 'text', text: [
       'You generate a structured weekly review JSON for the AA Operator dashboard.',
       'AA Operator is the AI management system for Attract Acquisition, a performance',
       'marketing agency running Meta/Google Ads for UK local service businesses.',
@@ -123,7 +123,7 @@ async function synthesise(context: string): Promise<Record<string, unknown>> {
       '  },',
       '  "priorities": [{"rank":1,"priority":"<str>","urgency":"<high|medium|low>","owner":"<Account Manager|AI System|Both>"}]',
       '}',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: context }],
   })
 

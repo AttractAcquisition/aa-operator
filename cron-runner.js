@@ -107,6 +107,14 @@ async function runSop(sop_id, sop_name, fn) {
         last_status: 'failure',
         last_error: message,
       }).eq('sop_id', sop_id),
+      supabase.from('ai_alerts').insert({
+        severity: 'critical',
+        category: 'Cron Failure',
+        sop_id,
+        message: `SOP ${sop_id} — ${sop_name} failed: ${message}`,
+        suggested_action: 'Check Railway cron service logs and redeploy Edge Function if needed',
+        resolved: false,
+      }),
     ])
 
     console.error(`[${new Date().toISOString()}] SOP ${sop_id} FAILED: ${message}`)
@@ -123,3 +131,22 @@ for (const job of JOBS) {
 }
 
 console.log(`Cron runner started — ${JOBS.length} jobs scheduled`)
+
+// ─── Global crash handler ─────────────────────────────────────────────────────
+
+process.on('uncaughtException', async (err) => {
+  const message = err instanceof Error ? err.message : String(err)
+  console.error(`[${new Date().toISOString()}] Uncaught exception — cron runner crashing: ${message}`)
+  try {
+    await supabase.from('ai_alerts').insert({
+      severity: 'critical',
+      category: 'Cron Failure',
+      message: `Cron runner process crashed: ${message}`,
+      suggested_action: 'Check Railway cron service logs and redeploy Edge Function if needed',
+      resolved: false,
+    })
+  } catch (alertErr) {
+    console.error('Failed to write crash alert to Supabase:', alertErr)
+  }
+  process.exit(1)
+})

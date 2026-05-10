@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { mockClients, mockSprints } from '@/lib/mockData'
 import { Panel, StatCard, Button, ProgressBar, Spinner } from '@/components/ui'
 import {
   Users, Zap, DollarSign, ExternalLink, X,
@@ -64,16 +63,10 @@ function fmtDate(iso: string): string {
   })
 }
 
-const MOCK: ClientWithSprint[] = mockClients.map(c => ({
-  ...c,
-  sprint: c.active_sprint_id
-    ? (mockSprints.find(s => s.id === c.active_sprint_id) ?? null)
-    : null,
-}))
-
 // ── Data fetcher ──────────────────────────────────────────────────────────────
 
 async function fetchClientsWithSprints(): Promise<ClientWithSprint[]> {
+  // TODO: sprints table not yet created — sprint column will be null until migration is added
   const [clientsRes, sprintsRes] = await Promise.all([
     supabase.from('clients').select('*').order('start_date', { ascending: false }),
     supabase.from('sprints').select('*').eq('status', 'active'),
@@ -629,8 +622,7 @@ export function Clients() {
     refetchInterval: 1000 * 60 * 5,
   })
 
-  const clients  = data && data.length > 0 ? data : MOCK
-  const isLive   = !!data && data.length > 0
+  const clients  = data ?? []
 
   const active       = clients.filter(c => c.status === 'active').length
   const totalMRR     = clients.reduce((a, c) => a + c.mrr, 0)
@@ -646,14 +638,14 @@ export function Clients() {
         <p className="text-xs text-base-500 font-mono mt-0.5">
           {isLoading
             ? 'Loading…'
-            : `${active} active clients · AI managing all delivery${isLive ? '' : ' · mock data'}`}
+            : `${active} active clients · AI managing all delivery`}
         </p>
       </div>
 
       {error && (
         <Panel className="p-3 border-red-op/30 bg-red-op/5">
           <p className="text-xs text-red-op font-mono">
-            Failed to load clients — showing cached mock data
+            Failed to load clients — check Supabase connection
           </p>
         </Panel>
       )}

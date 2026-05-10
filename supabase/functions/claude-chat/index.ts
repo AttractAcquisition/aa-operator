@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
         max_tokens: 4096,
-        system: system ?? '',
+        system: [{ type: 'text', text: system ?? '', cache_control: { type: 'ephemeral' } }],
         messages: loopMessages,
         tools,
       })

@@ -114,7 +114,7 @@ ${adSetSection}`
   const response = await anthropic.messages.create({
     model:      SONNET,
     max_tokens: 1200,
-    system: [
+    system: [{ type: 'text', text: [
       'You are an expert performance marketing analyst for Attract Acquisition,',
       'an agency running paid advertising (Meta Ads) for local service businesses.',
       '',
@@ -129,7 +129,7 @@ ${adSetSection}`
       '  nextSteps      — string[]: 3-5 specific, actionable next steps for the account manager',
       '',
       'Output ONLY valid JSON — no markdown fences, no explanation.',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role:    'user',

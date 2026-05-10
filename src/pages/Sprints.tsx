@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+// TODO: no 'sprints' table migration exists yet — mockSprints is a fallback used when the
+// live query returns empty results. Remove once the table is created.
 import { mockSprints } from '@/lib/mockData'
 import { Panel, StatCard, ProgressBar, Button, Spinner } from '@/components/ui'
 import { formatCurrency, getHealthColor, getSprintHealth, formatDate } from '@/lib/utils'

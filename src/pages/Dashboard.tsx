@@ -3,14 +3,26 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowRight, Users, Zap, DollarSign, CheckSquare,
-  Bell, TrendingUp, Clock, Play, RefreshCw
+  Bell, TrendingUp, Clock, Play, RefreshCw, Shield
 } from 'lucide-react'
-import { mockDailyBriefing } from '@/lib/mockData'
 import { supabase } from '@/lib/supabase'
 import { StatCard, Panel, SectionHeader, ProgressBar, Button, Spinner } from '@/components/ui'
-import { formatDate, formatCurrency, getHealthColor } from '@/lib/utils'
+import { cn, formatDate, formatCurrency, getHealthColor } from '@/lib/utils'
 import { useAppStore } from '@/store'
-import type { AITaskLog, DailyBriefing } from '@/types'
+import type { AITaskLog, CronJob, DailyBriefing } from '@/types'
+
+const EMPTY_BRIEFING: DailyBriefing = {
+  generated_at: new Date(0).toISOString(),
+  new_leads: 0,
+  warm_replies: 0,
+  active_sprints: 0,
+  pending_approvals: 0,
+  open_alerts: 0,
+  mrr: 0,
+  overdue_invoices: 0,
+  priorities: [],
+  sprint_snapshot: [],
+}
 
 const urgencyDot: Record<string, string> = {
   high: 'bg-red-op',
@@ -80,6 +92,30 @@ async function fetchRecentTaskLog(): Promise<AITaskLog[]> {
   return (data ?? []) as AITaskLog[]
 }
 
+async function fetchActiveCronJobs(): Promise<CronJob[]> {
+  const { data, error } = await supabase
+    .from('cron_schedule')
+    .select('id, sop_id, sop_name, domain, last_run, last_status, next_run, avg_duration_ms, run_count, last_error')
+    .eq('is_active', true)
+    .order('next_run', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as CronJob[]
+}
+
+function jobRowStyle(job: CronJob): string {
+  if (job.last_status === 'failure') return 'border-red-op/30 bg-red-op/5'
+  const stale = job.last_run && (Date.now() - new Date(job.last_run).getTime() > 26 * 3_600_000)
+  if (stale) return 'border-amber-op/30 bg-amber-op/5'
+  return 'border-base-700'
+}
+
+function statusDotClass(status?: string): string {
+  if (status === 'success') return 'bg-green-op'
+  if (status === 'failure') return 'bg-red-op'
+  if (status === 'running') return 'bg-electric animate-pulse'
+  return 'bg-base-500'
+}
+
 export function Dashboard() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -92,7 +128,7 @@ export function Dashboard() {
     refetchInterval: 1000 * 60 * 5,
   })
 
-  const b = liveBriefing ?? mockDailyBriefing
+  const b = liveBriefing ?? EMPTY_BRIEFING
 
   const { data: kpis, isLoading: kpisLoading } = useQuery({
     queryKey: ['dashboard_kpis'],
@@ -105,6 +141,28 @@ export function Dashboard() {
     queryFn: fetchRecentTaskLog,
     refetchInterval: 1000 * 60 * 2,
   })
+
+  const { data: cronJobs = [], isLoading: cronLoading } = useQuery({
+    queryKey: ['cron_schedule', 'active'],
+    queryFn: fetchActiveCronJobs,
+    refetchInterval: 1000 * 60 * 2,
+  })
+
+  const [backupRunning, setBackupRunning] = useState(false)
+
+  const runBackupCheck = async () => {
+    setBackupRunning(true)
+    try {
+      const { error } = await supabase.functions.invoke('sop-52-backup-check')
+      if (error) throw error
+      await queryClient.invalidateQueries({ queryKey: ['cron_schedule'] })
+      addNotification('Backup check complete', 'success')
+    } catch {
+      addNotification('Backup check failed — see task log', 'error')
+    } finally {
+      setBackupRunning(false)
+    }
+  }
 
   const runBriefing = async () => {
     setRefreshing(true)
@@ -136,7 +194,7 @@ export function Dashboard() {
           </div>
           <p className="text-xs text-base-500 font-mono ml-3">
             Briefing generated {formatDate(b.generated_at)} · SOP 58
-            {liveBriefing ? '' : ' · (mock data — run briefing to load live)'}
+            {liveBriefing ? '' : ' · (no briefing yet — click Run Briefing)'}
           </p>
         </div>
         <Button onClick={runBriefing} variant="secondary" size="sm" disabled={refreshing}>
@@ -330,6 +388,96 @@ export function Dashboard() {
           </div>
         </Panel>
       </div>
+
+      {/* System Health */}
+      <Panel className="overflow-hidden">
+        <div className="p-4 border-b border-base-600 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <SectionHeader title="System Health" />
+            {cronLoading && <Spinner size={12} />}
+          </div>
+          <Button onClick={runBackupCheck} disabled={backupRunning} variant="secondary" size="sm">
+            {backupRunning ? <Spinner size={12} /> : <Shield size={12} />}
+            {backupRunning ? 'Running…' : 'Run Backup Check'}
+          </Button>
+        </div>
+
+        {/* Column headers */}
+        <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 px-4 py-2 border-b border-base-700 text-[10px] font-mono uppercase text-base-500">
+          <span>SOP / Domain</span>
+          <span className="w-28 text-right">Last Run</span>
+          <span className="w-16 text-center">Status</span>
+          <span className="w-28 text-right">Next Run</span>
+          <span className="w-16 text-right">Avg Dur.</span>
+        </div>
+
+        <div className="divide-y divide-base-700/50">
+          {cronLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3 animate-pulse">
+                <div className="flex-1 h-3 bg-base-750 rounded" />
+                <div className="w-24 h-3 bg-base-750 rounded" />
+                <div className="w-6 h-3 bg-base-750 rounded" />
+                <div className="w-24 h-3 bg-base-750 rounded" />
+                <div className="w-10 h-3 bg-base-750 rounded" />
+              </div>
+            ))
+          ) : cronJobs.length === 0 ? (
+            <p className="text-xs text-base-500 font-mono py-6 text-center px-4">
+              No active cron jobs found — add jobs in Cron Manager
+            </p>
+          ) : (
+            cronJobs.map(job => (
+              <div
+                key={job.id}
+                className={cn(
+                  'grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 px-4 py-3 items-center border-l-2 hover:bg-base-750 transition-colors',
+                  jobRowStyle(job),
+                )}
+              >
+                {/* SOP name + domain */}
+                <div className="min-w-0">
+                  <p className="text-sm text-white truncate">{job.sop_name}</p>
+                  <p className="text-[10px] font-mono text-base-500">{job.domain}</p>
+                </div>
+
+                {/* Last run */}
+                <span className="text-xs font-mono text-base-400 text-right w-28">
+                  {job.last_run ? formatDate(job.last_run) : '—'}
+                </span>
+
+                {/* Status dot + label */}
+                <div className="flex items-center justify-center gap-1.5 w-16">
+                  <span className={cn('w-2 h-2 rounded-full flex-shrink-0', statusDotClass(job.last_status))} />
+                  <span className={cn(
+                    'text-[10px] font-mono font-bold',
+                    job.last_status === 'success' ? 'text-green-op'
+                    : job.last_status === 'failure' ? 'text-red-op'
+                    : job.last_status === 'running' ? 'text-electric'
+                    : 'text-base-500',
+                  )}>
+                    {job.last_status?.toUpperCase() ?? '—'}
+                  </span>
+                </div>
+
+                {/* Next run */}
+                <span className="text-xs font-mono text-base-400 text-right w-28">
+                  {job.next_run ? formatDate(job.next_run) : '—'}
+                </span>
+
+                {/* Avg duration */}
+                <span className="text-xs font-mono text-base-500 text-right w-16">
+                  {job.avg_duration_ms
+                    ? job.avg_duration_ms < 1000
+                      ? `${job.avg_duration_ms}ms`
+                      : `${(job.avg_duration_ms / 1000).toFixed(1)}s`
+                    : '—'}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </Panel>
     </div>
   )
 }

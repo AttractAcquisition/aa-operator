@@ -129,7 +129,7 @@ async function fillTemplate(
   const response = await anthropic.messages.create({
     model: SONNET,
     max_tokens: 16000,
-    system: [
+    system: [{ type: 'text', text: [
       'You are an expert HTML document personaliser for Attract Acquisition,',
       'a performance marketing agency that helps local service businesses win more clients.',
       '',
@@ -142,7 +142,7 @@ async function fillTemplate(
       '  4. Quantify missed opportunity where possible (competitor count, review gap, etc.).',
       '  5. Tone: direct, data-driven, empathetic — not salesy.',
       '  6. Output ONLY the complete, filled HTML document — no markdown fences, no commentary.',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role: 'user',

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+// TODO: no 'prospects' table migration exists yet — mockPipelineCounts and mockConversionChart
+// are fallbacks used when the live queries return empty results. Remove once the table is created.
 import { mockPipelineCounts, mockConversionChart } from '@/lib/mockData'
 import { Panel, SectionHeader, StatCard, Button, Spinner } from '@/components/ui'
 import { TrendingUp, Users, Zap, X, ArrowRight, ChevronRight } from 'lucide-react'

@@ -128,7 +128,7 @@ async function generateCallBrief(prospect: ProspectRow): Promise<CallBrief> {
     const response = await anthropic.messages.create({
       model: SONNET,
       max_tokens: 2048,
-      system: systemPrompt,
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       tools: [WEB_SEARCH_TOOL],
       messages,
     })

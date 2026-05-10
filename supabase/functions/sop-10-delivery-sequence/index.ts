@@ -64,7 +64,7 @@ async function draftSequences(
   const response = await anthropic.messages.create({
     model: SONNET,
     max_tokens: 6000,
-    system: [
+    system: [{ type: 'text', text: [
       'You write personalised WhatsApp message sequences for Attract Acquisition,',
       'a performance marketing agency that helps local service businesses win more clients.',
       '',
@@ -100,7 +100,7 @@ async function draftSequences(
       '  {"message_number":2,"body":"<text>"},',
       '  {"message_number":3,"body":"<text>"}',
       ']}]',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role: 'user',

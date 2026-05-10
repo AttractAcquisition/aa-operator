@@ -46,11 +46,11 @@ async function generateBatchNotes(
   const response = await anthropic.messages.create({
     model: HAIKU,
     max_tokens: 128,
-    system: [
+    system: [{ type: 'text', text: [
       'Write a single sentence summarising this CRM staging batch for an operator log.',
       'Be specific about volume, quality, and niche mix.',
       'Output ONLY the sentence — no quotes, no labels.',
-    ].join(' '),
+    ].join(' '), cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: context }],
   })
 

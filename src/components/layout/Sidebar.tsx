@@ -2,31 +2,46 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, MessageSquare, Clock, CheckSquare, Activity,
   ListChecks, Users, BarChart2, Bell, Settings, ChevronLeft,
-  Zap, Circle, FileText, BookOpen
+  Zap, Circle, FileText, BookOpen, TrendingUp, MessageCircle
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
-import { mockDailyBriefing } from '@/lib/mockData'
+import { supabase } from '@/lib/supabase'
 
 const nav = [
   { to: '/', icon: LayoutDashboard, label: 'Command Centre', exact: true },
   { to: '/chat', icon: MessageSquare, label: 'AI Chat' },
-  { to: '/approvals', icon: CheckSquare, label: 'Approval Queue', badge: mockDailyBriefing.pending_approvals },
+  { to: '/conversations', icon: MessageCircle, label: 'Conversations' },
+  { to: '/approvals', icon: CheckSquare, label: 'Approval Queue' },
   { to: '/pipeline', icon: Activity, label: 'Pipeline' },
   { to: '/sprints', icon: Zap, label: 'Sprints' },
   { to: '/crons', icon: Clock, label: 'Cron Manager' },
   { to: '/sops', icon: ListChecks, label: 'SOP Control' },
   { to: '/clients', icon: Users, label: 'Clients' },
   { to: '/finance', icon: BarChart2, label: 'Finance' },
-  { to: '/alerts', icon: Bell, label: 'Alerts', badge: mockDailyBriefing.open_alerts },
+  { to: '/alerts', icon: Bell, label: 'Alerts' },
   { to: '/documents', icon: FileText, label: 'Documents' },
   { to: '/knowledge-base', icon: BookOpen, label: 'Knowledge Base' },
+  { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
 export function Sidebar() {
   const { sidebarCollapsed, setSidebarCollapsed } = useAppStore()
   const location = useLocation()
+
+  const { data: badges } = useQuery({
+    queryKey: ['sidebar_badges'],
+    queryFn: async () => {
+      const [approvals, alerts] = await Promise.all([
+        supabase.from('approval_queue').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('ai_alerts').select('*', { count: 'exact', head: true }).eq('resolved', false),
+      ])
+      return { approvals: approvals.count ?? 0, alerts: alerts.count ?? 0 }
+    },
+    refetchInterval: 1000 * 60 * 2,
+  })
 
   return (
     <aside
@@ -59,8 +74,11 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2">
-        {nav.map(({ to, icon: Icon, label, badge, exact }) => {
+        {nav.map(({ to, icon: Icon, label, exact }) => {
           const isActive = exact ? location.pathname === to : location.pathname.startsWith(to)
+          const badge = to === '/approvals' ? (badges?.approvals ?? 0)
+                      : to === '/alerts' ? (badges?.alerts ?? 0)
+                      : undefined
           return (
             <NavLink
               key={to}

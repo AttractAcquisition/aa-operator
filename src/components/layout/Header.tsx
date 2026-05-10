@@ -1,9 +1,10 @@
 import { useLocation } from 'react-router-dom'
 import { Bell, RefreshCw, Clock } from 'lucide-react'
 import { format } from 'date-fns'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
-import { mockDailyBriefing } from '@/lib/mockData'
+import { supabase } from '@/lib/supabase'
 
 const titles: Record<string, { label: string; sub: string }> = {
   '/': { label: 'Command Centre', sub: 'SOP 58 — Daily operational overview' },
@@ -24,6 +25,18 @@ export function Header() {
   const location = useLocation()
   const page = titles[location.pathname] || { label: 'Operator', sub: '' }
   const now = new Date()
+
+  const { data: openAlerts = 0 } = useQuery({
+    queryKey: ['header_open_alerts'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('ai_alerts')
+        .select('*', { count: 'exact', head: true })
+        .eq('resolved', false)
+      return count ?? 0
+    },
+    refetchInterval: 1000 * 60 * 2,
+  })
 
   return (
     <header
@@ -62,7 +75,7 @@ export function Header() {
         {/* Alerts bell */}
         <button className="relative p-1.5 rounded text-base-500 hover:text-white hover:bg-base-700 transition-colors">
           <Bell size={14} />
-          {mockDailyBriefing.open_alerts > 0 && (
+          {openAlerts > 0 && (
             <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-op">
               <span className="absolute inset-0 rounded-full bg-red-op animate-ping opacity-60" />
             </span>

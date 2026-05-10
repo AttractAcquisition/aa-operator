@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
     const response = await anthropic.messages.create({
       model: SONNET,
       max_tokens: 2048,
-      system: [
+      system: [{ type: 'text', text: [
         'You are a lead generation strategist for Attract Acquisition, a B2B performance marketing agency.',
         'You analyse prospect quality and conversion data to recommend the next scraping targets.',
         '',
@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
         '',
         'JSON schema:',
         JSON.stringify(schemaExample),
-      ].join('\n'),
+      ].join('\n'), cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: context }],
     })
 

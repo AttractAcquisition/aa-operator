@@ -111,7 +111,7 @@ PIPELINE: ${summary.pipeline.warm} warm leads, ${summary.pipeline.call_booked} c
   const response = await anthropic.messages.create({
     model:      HAIKU,
     max_tokens: 500,
-    system: [
+    system: [{ type: 'text', text: [
       'You are a finance analyst for Attract Acquisition, a paid advertising agency.',
       'Analyse the monthly finance snapshot and return a JSON object with exactly these keys:',
       '  insights     — string[]: 3-5 concise bullet points covering margin health, overdue risk,',
@@ -119,7 +119,7 @@ PIPELINE: ${summary.pipeline.warm} warm leads, ${summary.pipeline.call_booked} c
       '  health_score — integer 1-10: overall financial health (10 = excellent, 1 = critical)',
       '',
       'Output ONLY valid JSON — no markdown fences, no explanation.',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role:    'user',

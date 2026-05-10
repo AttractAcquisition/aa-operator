@@ -240,7 +240,7 @@ async function generateUpsellProposal(
   const response = await anthropic.messages.create({
     model:      SONNET,
     max_tokens: 3200,
-    system: [
+    system: [{ type: 'text', text: [
       'You are a senior account strategist at Attract Acquisition, a UK performance marketing agency.',
       `You are preparing a personalised upgrade proposal for an existing client moving from ${path.current_label} to ${path.next_label}.`,
       '',
@@ -273,7 +273,7 @@ async function generateUpsellProposal(
       '  - Investment box: border 2px solid #2563EB, border-radius 8px, padding 24px, text-align center',
       '  - CTA section: background #0F1B2D, white text, padding 24px, border-radius 8px',
       '  - Footer: #f8fafc, 12px text, "Prepared by AA Operator · Attract Acquisition"',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: prompt }],
   })
 

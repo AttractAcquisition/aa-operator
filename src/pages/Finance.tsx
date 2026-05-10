@@ -5,7 +5,6 @@ import { formatCurrency, formatDate, cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { supabase } from '@/lib/supabase'
-import { mockFinance, mockRevenueChart } from '@/lib/mockData'
 
 // ─── DB row shapes ────────────────────────────────────────────────────────────
 
@@ -173,32 +172,28 @@ export function Finance() {
   const kpiIncome      = fs?.income.total_paid
     ?? (ledger && ledger.length > 0
       ? ledger.filter(r => r.entry_type === 'income').reduce((s, r) => s + r.amount, 0)
-      : mockFinance.filter(f => f.type === 'income').reduce((s, f) => s + f.amount, 0))
+      : 0)
 
   const kpiExpenses    = fs?.expenses.total
     ?? (ledger && ledger.length > 0
       ? ledger.filter(r => r.entry_type === 'expense').reduce((s, r) => s + r.amount, 0)
-      : mockFinance.filter(f => f.type === 'expense').reduce((s, f) => s + f.amount, 0))
+      : 0)
 
   const kpiNetProfit   = fs?.net_profit ?? (kpiIncome - kpiExpenses)
 
-  const kpiOutstanding = fs?.outstanding.total
-    ?? mockFinance.filter(f => f.invoice_status === 'pending' || f.invoice_status === 'overdue')
-        .reduce((s, f) => s + f.amount, 0)
+  const kpiOutstanding = fs?.outstanding.total ?? 0
 
-  const kpiOverdue     = fs?.overdue.total
-    ?? mockFinance.filter(f => f.invoice_status === 'overdue').reduce((s, f) => s + f.amount, 0)
+  const kpiOverdue     = fs?.overdue.total ?? 0
 
   const periodLabel    = fs?.period_label
     ?? new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 
   const isLive         = !!snapshot || (ledger && ledger.length > 0)
 
-  // Ledger rows: live if available, mock fallback
-  const ledgerRows   = ledger && ledger.length > 0 ? ledger : null
-  const showMockRows = !ledgerRows
+  // Ledger rows: live data or null (empty state shown in JSX)
+  const ledgerRows = ledger && ledger.length > 0 ? ledger : null
 
-  // Chart: live if available, mock fallback
+  // Chart: live data or empty
   const chartPoints  = chartData && chartData.some(p => p.income > 0 || p.expenses > 0)
     ? chartData
     : null
@@ -215,7 +210,7 @@ export function Finance() {
           <p className="text-xs text-base-500 font-mono mt-0.5">
             {snapshotLoading
               ? 'Loading…'
-              : `SOP 56 · ${snapshot ? `Snapshot ${snapshot.snapshot_date}` : 'Monday 07:00'}${isLive ? '' : ' · mock data'}`}
+              : `SOP 56 · ${snapshot ? `Snapshot ${snapshot.snapshot_date}` : 'Monday 07:00'}${isLive ? '' : ' · no data yet'}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -234,7 +229,7 @@ export function Finance() {
 
       {(snapshotError || ledgerError) && (
         <Panel className="p-3 border-amber-op/30 bg-amber-op/5">
-          <p className="text-xs text-amber-op font-mono">Supabase unavailable — showing mock data</p>
+          <p className="text-xs text-amber-op font-mono">Supabase unavailable — finance data may be incomplete</p>
         </Panel>
       )}
 
@@ -307,7 +302,7 @@ export function Finance() {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartPoints ?? mockRevenueChart.map(p => ({ month: p.month, income: p.revenue, expenses: 0 }))}>
+              <AreaChart data={chartPoints ?? []}>
                 <defs>
                   <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%"  stopColor="#00E676" stopOpacity={0.3} />
@@ -350,25 +345,14 @@ export function Finance() {
           {ledgerLoading && <Spinner size={14} />}
         </div>
         <div className="divide-y divide-base-700">
-          {showMockRows
-            ? mockFinance.map(entry => (
-                <div key={entry.id} className="flex items-center gap-4 px-4 py-3 hover:bg-base-750 transition-colors">
-                  <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', entry.type === 'income' ? 'bg-green-op' : 'bg-red-op')} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white">{entry.client_name || entry.notes}</p>
-                    <p className="text-[10px] text-base-500 font-mono">{entry.category} · {formatDate(entry.date)}</p>
-                  </div>
-                  {entry.invoice_status && (
-                    <span className={cn('text-[10px] font-mono font-bold px-2 py-0.5 rounded border', statusBadgeClass(entry.invoice_status))}>
-                      {entry.invoice_status.toUpperCase()}
-                    </span>
-                  )}
-                  <span className={cn('font-mono font-bold text-sm', entry.type === 'income' ? 'text-green-op' : 'text-red-op')}>
-                    {entry.type === 'income' ? '+' : '-'}{formatCurrency(entry.amount)}
-                  </span>
-                </div>
-              ))
-            : ledgerRows!.map(row => (
+          {ledgerLoading ? (
+            <div className="px-4 py-8 flex justify-center"><Spinner size={20} /></div>
+          ) : !ledgerRows ? (
+            <div className="px-4 py-8 text-center">
+              <p className="text-xs text-base-500 font-mono">No ledger entries this month</p>
+              <p className="text-[10px] text-base-600 font-mono mt-1">Run SOP 56 to populate finance data</p>
+            </div>
+          ) : ledgerRows.map(row => (
                 <div key={row.id} className="flex items-center gap-4 px-4 py-3 hover:bg-base-750 transition-colors">
                   <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', row.entry_type === 'income' ? 'bg-green-op' : 'bg-red-op')} />
                   <div className="flex-1 min-w-0">

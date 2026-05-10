@@ -95,7 +95,7 @@ async function generateCommentary(
   const response = await anthropic.messages.create({
     model:      SONNET,
     max_tokens: 1000,
-    system: [
+    system: [{ type: 'text', text: [
       'You are a performance analyst for Attract Acquisition, a paid advertising agency.',
       `Analyse the monthly KPI snapshot for ${periodLabel} and return a JSON object with exactly these keys:`,
       '  kpi_commentary   — object mapping each KPI name to a 1-sentence insight (max 20 words)',
@@ -106,7 +106,7 @@ async function generateCommentary(
       '  mrr_growth_rate, client_retention, revenue_per_client',
       '',
       'Output ONLY valid JSON — no markdown fences, no explanation.',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [{
       role:    'user',
       content: `KPI data for ${periodLabel}:\n\n${lines}`,

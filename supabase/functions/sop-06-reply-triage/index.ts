@@ -21,7 +21,7 @@ async function classifyReply(
   const response = await anthropic.messages.create({
     model: HAIKU,
     max_tokens: 128,
-    system: [
+    system: [{ type: 'text', text: [
       'You are a reply classifier for a B2B outreach sequence.',
       'Classify the prospect reply into exactly one of: warm, cold, not_interested, unsubscribed.',
       'warm = expressed interest or asked a follow-up question',
@@ -29,7 +29,7 @@ async function classifyReply(
       'not_interested = clearly declined but politely',
       'unsubscribed = asked to be removed / stop contact',
       'Respond with ONLY valid JSON: {"classification":"<label>","reason":"<one sentence>"}',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role: 'user',

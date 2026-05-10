@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Play, Search } from 'lucide-react'
+// TODO: no 'sops' table migration exists yet — replace mockSOPs with a live
+// useQuery(['sops'], () => supabase.from('sops').select('*')) once the table is created
 import { mockSOPs } from '@/lib/mockData'
 import { Panel, TierBadge, Button, StatusDot } from '@/components/ui'
 import { formatRelative, cn } from '@/lib/utils'

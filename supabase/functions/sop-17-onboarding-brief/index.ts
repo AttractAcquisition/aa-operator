@@ -166,7 +166,7 @@ async function researchCampaignStrategy(
     const response = await anthropic.messages.create({
       model: SONNET,
       max_tokens: 2048,
-      system: systemPrompt,
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       tools: [WEB_SEARCH_TOOL],
       messages,
     })
@@ -218,7 +218,7 @@ async function generateOnboardingBrief(
   const response = await anthropic.messages.create({
     model: SONNET,
     max_tokens: 16000,
-    system: [
+    system: [{ type: 'text', text: [
       'You are a senior campaign strategist at Attract Acquisition, a UK performance',
       'marketing agency. You are writing an internal client onboarding brief for the',
       'delivery team — this is an operational document, not a client-facing sales piece.',
@@ -247,7 +247,7 @@ async function generateOnboardingBrief(
       '         must provide before launch.',
       '  — Tone: operational, specific, actionable. Written for the internal team.',
       '  — Output ONLY the complete HTML — no markdown fences, no commentary.',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role: 'user',

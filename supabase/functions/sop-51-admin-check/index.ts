@@ -98,7 +98,7 @@ ${alertLines}`
   const response = await anthropic.messages.create({
     model:      HAIKU,
     max_tokens: 600,
-    system: [
+    system: [{ type: 'text', text: [
       'You are the admin assistant for Attract Acquisition, a paid advertising agency.',
       'Analyse the weekly system health report and return a JSON object with exactly these keys:',
       '  overall_status      — "critical"|"warning"|"healthy"',
@@ -109,7 +109,7 @@ ${alertLines}`
       '  escalation_required — boolean: true if human intervention is needed before next Monday',
       '',
       'Be direct and operational. Output ONLY valid JSON — no markdown fences, no explanation.',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: prompt }],
   })
 

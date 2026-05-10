@@ -53,7 +53,7 @@ async function generateContentPieces(
   const response = await anthropic.messages.create({
     model:      SONNET,
     max_tokens: 2500,
-    system: [
+    system: [{ type: 'text', text: [
       'You are the content strategist for Attract Acquisition, a UK-based paid advertising agency.',
       'Attract Acquisition helps local service businesses (trades, clinics, consultants) generate leads via Meta and Google Ads.',
       'Your tone is confident, results-focused, and credible — no hype, no fluff.',
@@ -75,7 +75,7 @@ async function generateContentPieces(
       'Use the sprint wins, client results, and industry insights provided to ground each piece in real proof.',
       'If specific numbers are available (CPL, ROAS, lead counts), use them — vague claims are weak.',
       'Each piece should stand alone as compelling content without requiring context from the others.',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [{
       role:    'user',
       content: `Week: ${weekLabel}\n\n${context}\n\nGenerate 5 content pieces now.`,

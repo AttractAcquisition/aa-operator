@@ -53,7 +53,7 @@ async function draftMessages(prospects: ProspectRow[]): Promise<DraftedMessage[]
   const response = await anthropic.messages.create({
     model: SONNET,
     max_tokens: 4096,
-    system: [
+    system: [{ type: 'text', text: [
       'You write personalised WhatsApp cold outreach messages for Attract Acquisition,',
       'a performance marketing agency that helps local service businesses get more leads',
       'through paid advertising (Google Ads, Meta Ads).',
@@ -71,7 +71,7 @@ async function draftMessages(prospects: ProspectRow[]): Promise<DraftedMessage[]
       '',
       'Return ONLY a valid JSON array — no markdown fences, no explanation:',
       '[{"prospect_id":"<uuid>","message":"<WhatsApp message text>"}]',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role: 'user',

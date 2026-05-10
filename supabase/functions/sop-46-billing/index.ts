@@ -67,7 +67,7 @@ MOST OVERDUE: ${maxDays} days`
   const response = await anthropic.messages.create({
     model:      SONNET,
     max_tokens: 400,
-    system: [
+    system: [{ type: 'text', text: [
       'You write short, warm, professional WhatsApp payment chase messages for Attract Acquisition,',
       'a paid advertising agency. These are messages to existing managed clients — the tone should be',
       'friendly and relationship-preserving, not aggressive or formal.',
@@ -80,7 +80,7 @@ MOST OVERDUE: ${maxDays} days`
       '- Do NOT use emojis',
       '- End with: "Thanks, Alex"',
       '- Output ONLY the message text — no intro, no quotes, no explanation',
-    ].join('\n'),
+    ].join('\n'), cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role:    'user',

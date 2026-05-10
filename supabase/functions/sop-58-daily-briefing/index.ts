@@ -129,7 +129,7 @@ ${sprints.length > 0
     const response = await anthropic.messages.create({
       model: SONNET,
       max_tokens: 2048,
-      system: [
+      system: [{ type: 'text', text: [
         'You generate structured daily briefing JSON for the AA Operator dashboard (B2B lead generation agency).',
         '',
         'Rules:',
@@ -147,7 +147,7 @@ ${sprints.length > 0
         '{"generated_at":"<ISO>","new_leads":0,"warm_replies":0,"active_sprints":0,"pending_approvals":0,"open_alerts":0,"mrr":0,"overdue_invoices":0',
         ',"priorities":[{"rank":1,"category":"<Sprint Performance|Finance|Approval Queue|Pipeline|Upcoming>","message":"<specific insight>","action":"<actionable step>","urgency":"<high|medium|low>"}]',
         ',"sprint_snapshot":[{"client":"<name>","day":0,"status":"<on_track|at_risk|off_track>","leads_today":0}]}',
-      ].join('\n'),
+      ].join('\n'), cache_control: { type: 'ephemeral' } }],
       messages: [
         { role: 'user', content: context },
       ],

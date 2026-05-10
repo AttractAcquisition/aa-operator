@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Play, Pause, RotateCcw, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react'
-import { mockCronJobs } from '@/lib/mockData'
 import { Panel, SectionHeader, Button, StatusDot, Spinner } from '@/components/ui'
 import { formatRelative, cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
@@ -53,8 +52,8 @@ export function CronManager() {
     refetchInterval: 1000 * 30,
   })
 
-  const jobs   = data && data.length > 0 ? data : mockCronJobs
-  const isLive = !!data && data.length > 0
+  const jobs   = data ?? []
+  const isLive = !!data
 
   // ── Toggle mutation (optimistic) ─────────────────────────────────────────────
 
@@ -155,7 +154,7 @@ export function CronManager() {
           <p className="text-xs text-base-500 font-mono mt-0.5">
             {isLoading
               ? 'Loading…'
-              : `${activeCount}/${jobs.length} active · ${failedCount} failed${isLive ? '' : ' · mock data'}`}
+              : `${activeCount}/${jobs.length} active · ${failedCount} failed`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -170,7 +169,7 @@ export function CronManager() {
       {fetchError && (
         <Panel className="p-3 border-red-op/30 bg-red-op/5">
           <p className="text-xs text-red-op font-mono">
-            Failed to load schedules — showing cached mock data
+            Failed to load schedules — check Supabase connection
           </p>
         </Panel>
       )}
