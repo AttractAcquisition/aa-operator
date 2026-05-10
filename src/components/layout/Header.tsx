@@ -1,10 +1,11 @@
 import { useLocation } from 'react-router-dom'
-import { Bell, RefreshCw, Clock } from 'lucide-react'
+import { Bell, RefreshCw, Clock, LogOut } from 'lucide-react'
 import { format } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 const titles: Record<string, { label: string; sub: string }> = {
   '/': { label: 'Command Centre', sub: 'SOP 58 — Daily operational overview' },
@@ -22,6 +23,7 @@ const titles: Record<string, { label: string; sub: string }> = {
 
 export function Header() {
   const { sidebarCollapsed, addNotification } = useAppStore()
+  const { signOut } = useAuth()
   const location = useLocation()
   const page = titles[location.pathname] || { label: 'Operator', sub: '' }
   const now = new Date()
@@ -89,6 +91,15 @@ export function Header() {
             <span className="text-[10px] font-mono text-green-op font-medium">06:00 ✓</span>
           </div>
         </div>
+
+        {/* Sign out */}
+        <button
+          onClick={signOut}
+          className="p-1.5 rounded text-base-500 hover:text-red-op hover:bg-red-op/10 transition-colors"
+          title="Sign out"
+        >
+          <LogOut size={14} />
+        </button>
       </div>
     </header>
   )
