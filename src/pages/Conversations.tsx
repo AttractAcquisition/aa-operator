@@ -6,34 +6,42 @@ import { Panel, Button, Spinner, EmptyState } from '@/components/ui'
 import { cn, formatDate, formatRelative } from '@/lib/utils'
 import { useAppStore } from '@/store'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types aligned with actual DB schema ─────────────────────────────────────
+
+interface ProspectJoin {
+  id: string
+  owner_name: string | null
+  business_name: string | null
+  vertical: string | null
+  quality_score: number | null
+  phone: string | null
+  status: string | null
+}
+
+interface WaConversation {
+  id: string
+  prospect_id: string | null
+  contact_name: string | null
+  phone_number: string | null
+  last_message_preview: string | null
+  last_message_at: string | null
+  unread_count: number
+  stage: string | null         // warm | cold | replied | call_booked | not_interested | contacted
+  needs_human: boolean | null
+  ai_intent: string | null
+  created_at: string
+  prospect: ProspectJoin | null
+}
 
 interface WaMessage {
   id: string
-  prospect_id: string
+  conversation_id: string
   direction: 'inbound' | 'outbound'
-  message_body: string
+  body: string | null
   created_at: string
-  status?: string
-}
-
-interface ProspectInfo {
-  id: string
-  name: string
-  company: string
-  status: string
-  niche: string | null
-  quality_score: number
-  phone: string
-}
-
-interface Thread {
-  prospect: ProspectInfo
-  messages: WaMessage[]
-  last_message: string
-  last_at: string
-  last_direction: 'inbound' | 'outbound'
-  unread: number
+  status: string | null
+  sender_type: string | null
+  ai_generated: boolean | null
 }
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
@@ -47,150 +55,54 @@ const STATUS_STYLE: Record<string, string> = {
   contacted:      'text-base-400   bg-base-750      border-base-600',
 }
 
-function statusStyle(s: string) {
-  return STATUS_STYLE[s] ?? 'text-base-500 bg-base-750 border-base-600'
+function statusStyle(s: string | null) {
+  return STATUS_STYLE[s ?? ''] ?? 'text-base-500 bg-base-750 border-base-600'
 }
 
-// ─── Mock data (fallback when table is empty / offline) ───────────────────────
+// ─── Data fetchers ────────────────────────────────────────────────────────────
 
-function daysAgo(d: number) {
-  return new Date(Date.now() - d * 86_400_000).toISOString()
+async function fetchConversations(): Promise<WaConversation[]> {
+  const { data, error } = await supabase
+    .from('whatsapp_conversations')
+    .select('id, prospect_id, contact_name, phone_number, last_message_preview, last_message_at, unread_count, stage, needs_human, ai_intent, created_at, prospect:prospect_id(id, owner_name, business_name, vertical, quality_score, phone, status)')
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .limit(100)
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as WaConversation[]
 }
-function hoursAgo(h: number) {
-  return new Date(Date.now() - h * 3_600_000).toISOString()
-}
 
-const MOCK_THREADS: Thread[] = [
-  {
-    prospect: {
-      id: 'mp1', name: 'James Mitchell', company: 'Mitchell Roofing Ltd',
-      status: 'warm', niche: 'roofing', quality_score: 8.2, phone: '+447700900001',
-    },
-    messages: [
-      { id: 'mm1', prospect_id: 'mp1', direction: 'outbound', message_body: 'Hi James, I came across Mitchell Roofing — impressive reviews. I help local roofing companies generate 20–40 qualified leads/month through targeted Facebook and Google ads. Would a quick 15-min call be worthwhile?', created_at: daysAgo(5), status: 'read' },
-      { id: 'mm2', prospect_id: 'mp1', direction: 'inbound',  message_body: "Hi, yeah we're always looking for more work. What sort of leads are we talking?", created_at: daysAgo(4) },
-      { id: 'mm3', prospect_id: 'mp1', direction: 'outbound', message_body: 'Homeowners in your area actively searching for roofing quotes — not generic form fills. We run a 14-day proof sprint so you see results before committing to anything. Average CPL £18–£25 for roofing. Interested?', created_at: daysAgo(4), status: 'read' },
-      { id: 'mm4', prospect_id: 'mp1', direction: 'inbound',  message_body: 'Yeah sounds good, happy to jump on a call this week', created_at: hoursAgo(2) },
-    ],
-    last_message: 'Yeah sounds good, happy to jump on a call this week',
-    last_at: hoursAgo(2),
-    last_direction: 'inbound',
-    unread: 1,
-  },
-  {
-    prospect: {
-      id: 'mp2', name: 'Sarah Patel', company: 'Patel & Sons Electrical',
-      status: 'replied', niche: 'electrical', quality_score: 7.4, phone: '+447700900002',
-    },
-    messages: [
-      { id: 'mm5', prospect_id: 'mp2', direction: 'outbound', message_body: 'Hi Sarah, I help local electricians fill their job pipeline with qualified leads. Would you be open to a quick chat?', created_at: daysAgo(3), status: 'read' },
-      { id: 'mm6', prospect_id: 'mp2', direction: 'inbound',  message_body: "Hi, we're pretty busy at the moment but always open to more commercial work", created_at: daysAgo(2) },
-    ],
-    last_message: "Hi, we're pretty busy at the moment but always open to more commercial work",
-    last_at: daysAgo(2),
-    last_direction: 'inbound',
-    unread: 1,
-  },
-  {
-    prospect: {
-      id: 'mp3', name: 'Dan Hughes', company: 'Hughes Plumbing & Heating',
-      status: 'cold', niche: 'plumbing', quality_score: 6.1, phone: '+447700900003',
-    },
-    messages: [
-      { id: 'mm7', prospect_id: 'mp3', direction: 'outbound', message_body: 'Hi Dan, saw your Google listing — strong reviews. I help plumbing companies get consistent leads through paid ads. Worth a chat?', created_at: daysAgo(7), status: 'read' },
-      { id: 'mm8', prospect_id: 'mp3', direction: 'inbound',  message_body: 'Not really looking at the moment cheers', created_at: daysAgo(6) },
-      { id: 'mm9', prospect_id: 'mp3', direction: 'outbound', message_body: "No worries at all Dan. I'll check back in a couple of months — good luck with the summer busy period.", created_at: daysAgo(6), status: 'read' },
-    ],
-    last_message: 'No worries at all Dan. I\'ll check back in a couple of months…',
-    last_at: daysAgo(6),
-    last_direction: 'outbound',
-    unread: 0,
-  },
-  {
-    prospect: {
-      id: 'mp4', name: 'Lisa Turner', company: 'Turner & Co Landscaping',
-      status: 'not_interested', niche: 'landscaping', quality_score: 5.8, phone: '+447700900004',
-    },
-    messages: [
-      { id: 'mm10', prospect_id: 'mp4', direction: 'outbound', message_body: 'Hi Lisa, I help local landscaping businesses get more enquiries. Would you be open to a quick chat?', created_at: daysAgo(10), status: 'read' },
-      { id: 'mm11', prospect_id: 'mp4', direction: 'inbound',  message_body: 'Please don\'t message me again', created_at: daysAgo(9) },
-    ],
-    last_message: 'Please don\'t message me again',
-    last_at: daysAgo(9),
-    last_direction: 'inbound',
-    unread: 0,
-  },
-]
-
-// ─── Data fetch ───────────────────────────────────────────────────────────────
-
-async function fetchThreads(): Promise<Thread[]> {
-  const cutoff = new Date(Date.now() - 90 * 86_400_000).toISOString()
-
-  const { data: msgs, error: msgErr } = await supabase
+async function fetchMessages(conversationId: string): Promise<WaMessage[]> {
+  const { data, error } = await supabase
     .from('whatsapp_messages')
-    .select('id, prospect_id, direction, message_body, created_at, status')
-    .gte('created_at', cutoff)
+    .select('id, conversation_id, direction, body, created_at, status, sender_type, ai_generated')
+    .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
-    .limit(2000)
 
-  if (msgErr) throw new Error(msgErr.message)
-  const messages = (msgs ?? []) as WaMessage[]
-  if (messages.length === 0) return []
-
-  const prospectIds = [...new Set(messages.map(m => m.prospect_id))]
-
-  const { data: prospects, error: pErr } = await supabase
-    .from('prospects')
-    .select('id, name, company, status, niche, quality_score, phone')
-    .in('id', prospectIds)
-
-  if (pErr) throw new Error(pErr.message)
-  const prospectMap = new Map((prospects ?? []).map((p) => [p.id, p as ProspectInfo]))
-
-  // Group messages by prospect_id
-  const groups: Record<string, WaMessage[]> = {}
-  for (const m of messages) {
-    if (!groups[m.prospect_id]) groups[m.prospect_id] = []
-    groups[m.prospect_id].push(m)
-  }
-
-  return Object.entries(groups)
-    .map(([pid, msgs]) => {
-      const sorted  = [...msgs].sort((a, b) => a.created_at.localeCompare(b.created_at))
-      const last    = sorted[sorted.length - 1]
-      const prospect = prospectMap.get(pid) ?? {
-        id: pid, name: 'Unknown', company: '', status: 'contacted',
-        niche: null, quality_score: 0, phone: '',
-      }
-      const inbound = sorted.filter(m => m.direction === 'inbound')
-      const lastOutboundIdx = [...sorted].reverse().findIndex(m => m.direction === 'outbound')
-      const unread = lastOutboundIdx < 0
-        ? inbound.length
-        : inbound.filter(m => m.created_at > sorted[sorted.length - 1 - lastOutboundIdx].created_at).length
-
-      return {
-        prospect,
-        messages: sorted,
-        last_message: last.message_body.slice(0, 80),
-        last_at: last.created_at,
-        last_direction: last.direction,
-        unread,
-      }
-    })
-    .sort((a, b) => b.last_at.localeCompare(a.last_at))
+  if (error) throw new Error(error.message)
+  return (data ?? []) as WaMessage[]
 }
 
 // ─── Generate reply via claude-chat ──────────────────────────────────────────
 
-async function callGenerateReply(thread: Thread): Promise<string> {
-  const history = thread.messages
-    .map(m => `${m.direction === 'inbound' ? thread.prospect.name : 'AA Operator'}: ${m.message_body}`)
+async function callGenerateReply(conv: WaConversation, messages: WaMessage[]): Promise<string> {
+  const name    = conv.contact_name ?? conv.prospect?.owner_name ?? 'the prospect'
+  const company = conv.prospect?.business_name
+  const vertical = conv.prospect?.vertical
+  const qualityScore = conv.prospect?.quality_score
+
+  const history = messages
+    .map(m => `${m.direction === 'inbound' ? name : 'AA Operator'}: ${m.body ?? ''}`)
     .join('\n')
 
   const prompt = [
-    `Suggest a WhatsApp follow-up reply to ${thread.prospect.name} at ${thread.prospect.company}.`,
-    `Status: ${thread.prospect.status}. Niche: ${thread.prospect.niche ?? 'local trades'}. Quality score: ${thread.prospect.quality_score}/10.`,
+    `Suggest a WhatsApp follow-up reply to ${name}${company ? ` at ${company}` : ''}.`,
+    [
+      `Stage: ${conv.stage ?? 'unknown'}.`,
+      `Intent: ${conv.ai_intent ?? 'unknown'}.`,
+      vertical ? `Niche: ${vertical}.` : '',
+      qualityScore != null ? `Quality score: ${qualityScore}/10.` : '',
+    ].filter(Boolean).join(' '),
     '',
     'WhatsApp conversation so far:',
     history,
@@ -230,7 +142,11 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
 
 // ─── Thread list item ─────────────────────────────────────────────────────────
 
-function ThreadItem({ thread, active, onClick }: { thread: Thread; active: boolean; onClick: () => void }) {
+function ThreadItem({ conv, active, onClick }: { conv: WaConversation; active: boolean; onClick: () => void }) {
+  const name    = conv.contact_name ?? conv.prospect?.owner_name ?? conv.phone_number ?? 'Unknown'
+  const company = conv.prospect?.business_name
+  const vertical = conv.prospect?.vertical
+
   return (
     <button
       onClick={onClick}
@@ -242,37 +158,42 @@ function ThreadItem({ thread, active, onClick }: { thread: Thread; active: boole
       )}
     >
       <div className="relative">
-        <Avatar name={thread.prospect.name} size="md" />
-        {thread.unread > 0 && (
+        <Avatar name={name} size="md" />
+        {conv.unread_count > 0 && (
           <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-green-op border border-base-900 flex items-center justify-center text-[9px] font-bold text-base-950">
-            {thread.unread}
+            {conv.unread_count}
           </span>
         )}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1 mb-0.5">
-          <span className={cn('text-sm font-medium truncate', thread.unread > 0 ? 'text-white' : 'text-base-300')}>
-            {thread.prospect.name}
+          <span className={cn('text-sm font-medium truncate', conv.unread_count > 0 ? 'text-white' : 'text-base-300')}>
+            {name}
           </span>
           <span className="text-[10px] font-mono text-base-600 flex-shrink-0">
-            {formatRelative(thread.last_at)}
+            {conv.last_message_at ? formatRelative(conv.last_message_at) : '—'}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-[10px] text-base-500 truncate">{thread.prospect.company}</span>
-        </div>
+        {(company || vertical) && (
+          <div className="flex items-center gap-1 mb-1">
+            {company && <span className="text-[10px] text-base-500 truncate">{company}</span>}
+            {company && vertical && <span className="text-[10px] text-base-700">·</span>}
+            {vertical && <span className="text-[10px] text-base-600 truncate">{vertical}</span>}
+          </div>
+        )}
         <div className="flex items-center justify-between gap-2">
           <p className={cn(
             'text-xs truncate flex-1',
-            thread.unread > 0 ? 'text-base-300' : 'text-base-600',
+            conv.unread_count > 0 ? 'text-base-300' : 'text-base-600',
           )}>
-            {thread.last_direction === 'outbound' && <span className="text-base-600">You: </span>}
-            {thread.last_message}
+            {conv.last_message_preview ?? ''}
           </p>
-          <span className={cn('text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border flex-shrink-0', statusStyle(thread.prospect.status))}>
-            {thread.prospect.status.replace('_', ' ').toUpperCase()}
-          </span>
+          {conv.stage && (
+            <span className={cn('text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border flex-shrink-0', statusStyle(conv.stage))}>
+              {conv.stage.replace('_', ' ').toUpperCase()}
+            </span>
+          )}
         </div>
       </div>
     </button>
@@ -281,11 +202,11 @@ function ThreadItem({ thread, active, onClick }: { thread: Thread; active: boole
 
 // ─── Message bubble ───────────────────────────────────────────────────────────
 
-function MsgBubble({ msg, prospectName }: { msg: WaMessage; prospectName: string }) {
+function MsgBubble({ msg, contactName }: { msg: WaMessage; contactName: string }) {
   const isOut = msg.direction === 'outbound'
   return (
     <div className={cn('flex gap-2 items-end', isOut ? 'flex-row-reverse' : 'flex-row')}>
-      {!isOut && <Avatar name={prospectName} size="sm" />}
+      {!isOut && <Avatar name={contactName} size="sm" />}
       <div className={cn('max-w-[72%] space-y-1', isOut ? 'items-end' : 'items-start', 'flex flex-col')}>
         <div className={cn(
           'px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed',
@@ -293,7 +214,10 @@ function MsgBubble({ msg, prospectName }: { msg: WaMessage; prospectName: string
             ? 'bg-electric/15 border border-electric/25 text-white rounded-br-sm'
             : 'bg-base-750 border border-base-600 text-base-200 rounded-bl-sm',
         )}>
-          {msg.message_body}
+          {msg.body ?? ''}
+          {msg.ai_generated && (
+            <span className="ml-2 text-[9px] font-mono text-electric/60">AI</span>
+          )}
         </div>
         <div className={cn('flex items-center gap-1.5', isOut && 'flex-row-reverse')}>
           <span className="text-[10px] font-mono text-base-600">{formatDate(msg.created_at)}</span>
@@ -313,23 +237,34 @@ function MsgBubble({ msg, prospectName }: { msg: WaMessage; prospectName: string
 
 // ─── Conversation panel ───────────────────────────────────────────────────────
 
-function ConversationPanel({ thread }: { thread: Thread }) {
+function ConversationPanel({ conv }: { conv: WaConversation }) {
   const { addNotification } = useAppStore()
   const [generating, setGenerating] = useState(false)
   const [draftReply, setDraftReply] = useState<string | null>(null)
   const [queueing, setQueueing] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const isWarm = ['warm', 'replied', 'call_booked'].includes(thread.prospect.status)
+
+  const { data: messages = [], isLoading: msgsLoading } = useQuery({
+    queryKey: ['whatsapp_messages', conv.id],
+    queryFn: () => fetchMessages(conv.id),
+    refetchInterval: 30_000,
+  })
+
+  const name     = conv.contact_name ?? conv.prospect?.owner_name ?? conv.phone_number ?? 'Unknown'
+  const company  = conv.prospect?.business_name
+  const vertical = conv.prospect?.vertical
+  const qualityScore = conv.prospect?.quality_score
+  const isWarm   = ['warm', 'replied', 'call_booked'].includes(conv.stage ?? '')
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [thread.prospect.id, thread.messages.length])
+  }, [conv.id, messages.length])
 
   const handleGenerate = async () => {
     setGenerating(true)
     setDraftReply(null)
     try {
-      const reply = await callGenerateReply(thread)
+      const reply = await callGenerateReply(conv, messages)
       setDraftReply(reply)
     } catch (err) {
       addNotification(`Reply generation failed: ${err instanceof Error ? err.message : 'unknown error'}`, 'error')
@@ -346,21 +281,22 @@ function ConversationPanel({ thread }: { thread: Thread }) {
         sop_id: '01',
         sop_name: 'SOP 01 — Outreach Drafts',
         type: 'whatsapp_message',
-        priority: thread.prospect.status === 'warm' ? 'high' : 'medium',
+        priority: conv.stage === 'warm' ? 'high' : 'medium',
         content: {
-          title: `WhatsApp reply — ${thread.prospect.name} (${thread.prospect.company})`,
+          title: `WhatsApp reply — ${name}${company ? ` (${company})` : ''}`,
           body: draftReply,
-          recipient: thread.prospect.phone || thread.prospect.name,
+          recipient: conv.phone_number ?? conv.prospect?.phone ?? name,
           metadata: {
-            prospect_id: thread.prospect.id,
-            prospect_status: thread.prospect.status,
-            niche: thread.prospect.niche ?? 'unknown',
-            quality_score: String(thread.prospect.quality_score),
+            conversation_id: conv.id,
+            prospect_id: conv.prospect_id ?? '',
+            stage: conv.stage ?? 'unknown',
+            niche: vertical ?? 'unknown',
+            quality_score: String(qualityScore ?? 0),
             model: 'claude-sonnet-4-6',
           },
         },
       })
-      addNotification(`Reply queued for approval — ${thread.prospect.name}`, 'success')
+      addNotification(`Reply queued for approval — ${name}`, 'success')
       setDraftReply(null)
     } catch (err) {
       addNotification(`Failed to queue: ${err instanceof Error ? err.message : 'unknown error'}`, 'error')
@@ -373,28 +309,44 @@ function ConversationPanel({ thread }: { thread: Thread }) {
     <div className="flex flex-col flex-1 min-h-0">
       {/* Thread header */}
       <div className="px-5 py-3 border-b border-base-600 flex items-center gap-3 flex-shrink-0">
-        <Avatar name={thread.prospect.name} size="md" />
+        <Avatar name={name} size="md" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-white">{thread.prospect.name}</span>
-            <span className={cn('text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border', statusStyle(thread.prospect.status))}>
-              {thread.prospect.status.replace('_', ' ').toUpperCase()}
-            </span>
+            <span className="font-medium text-white">{name}</span>
+            {conv.stage && (
+              <span className={cn('text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border', statusStyle(conv.stage))}>
+                {conv.stage.replace('_', ' ').toUpperCase()}
+              </span>
+            )}
+            {conv.needs_human && (
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border text-amber-op bg-amber-op/10 border-amber-op/25">
+                NEEDS HUMAN
+              </span>
+            )}
           </div>
           <p className="text-xs text-base-500 font-mono">
-            {thread.prospect.company}
-            {thread.prospect.niche && ` · ${thread.prospect.niche}`}
-            {` · Q${thread.prospect.quality_score}`}
+            {[company, vertical, qualityScore != null ? `Q${qualityScore}` : null]
+              .filter(Boolean).join(' · ')}
           </p>
         </div>
-        <span className="text-[10px] font-mono text-base-600">{thread.messages.length} messages</span>
+        <span className="text-[10px] font-mono text-base-600">{messages.length} messages</span>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
-        {thread.messages.map(msg => (
-          <MsgBubble key={msg.id} msg={msg} prospectName={thread.prospect.name} />
-        ))}
+        {msgsLoading ? (
+          <div className="flex items-center justify-center py-10">
+            <Spinner size={20} />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="py-10 px-4 text-center">
+            <p className="text-xs text-base-500">No messages in this conversation yet</p>
+          </div>
+        ) : (
+          messages.map(msg => (
+            <MsgBubble key={msg.id} msg={msg} contactName={name} />
+          ))
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -450,23 +402,27 @@ export function Conversations() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
-  const { data: liveThreads, isLoading, error } = useQuery({
-    queryKey: ['whatsapp_threads'],
-    queryFn: fetchThreads,
-    refetchInterval: 1000 * 60 * 2,
+  const { data: conversations = [], isLoading, error } = useQuery({
+    queryKey: ['whatsapp_conversations'],
+    queryFn: fetchConversations,
+    refetchInterval: 30_000,
   })
 
-  const useMock  = !isLoading && (!liveThreads || liveThreads.length === 0)
-  const threads  = useMock ? MOCK_THREADS : (liveThreads ?? [])
+  const filtered = conversations.filter(c => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      (c.contact_name ?? '').toLowerCase().includes(q) ||
+      (c.prospect?.owner_name ?? '').toLowerCase().includes(q) ||
+      (c.prospect?.business_name ?? '').toLowerCase().includes(q) ||
+      (c.phone_number ?? '').includes(q) ||
+      (c.last_message_preview ?? '').toLowerCase().includes(q)
+    )
+  })
 
-  const filtered = threads.filter(t =>
-    !search || [t.prospect.name, t.prospect.company, t.last_message]
-      .some(s => s.toLowerCase().includes(search.toLowerCase()))
-  )
+  const selected = filtered.find(c => c.id === selectedId) ?? filtered[0] ?? null
 
-  const selected = filtered.find(t => t.prospect.id === selectedId) ?? filtered[0] ?? null
-
-  const totalUnread = threads.reduce((n, t) => n + t.unread, 0)
+  const totalUnread = conversations.reduce((n, c) => n + (c.unread_count ?? 0), 0)
 
   return (
     <div className="animate-fade-up flex flex-col" style={{ height: 'calc(100vh - 104px)' }}>
@@ -482,7 +438,11 @@ export function Conversations() {
             )}
           </div>
           <p className="text-xs text-base-500 font-mono mt-0.5">
-            {isLoading ? 'Loading…' : `${threads.length} threads${useMock ? ' · mock data' : ''}${error ? ' · offline' : ''}`}
+            {isLoading
+              ? 'Loading…'
+              : error
+              ? 'Error loading conversations'
+              : `${conversations.length} thread${conversations.length !== 1 ? 's' : ''}`}
           </p>
         </div>
       </div>
@@ -517,18 +477,30 @@ export function Conversations() {
                   </div>
                 </div>
               ))
+            ) : error ? (
+              <div className="py-10 px-4 text-center">
+                <MessageCircle size={24} className="text-red-op/50 mx-auto mb-2" />
+                <p className="text-xs text-red-op/70">Failed to load conversations</p>
+                <p className="text-[10px] text-base-600 mt-1 font-mono">
+                  {error instanceof Error ? error.message : 'Unknown error'}
+                </p>
+              </div>
             ) : filtered.length === 0 ? (
               <div className="py-10 px-4 text-center">
                 <MessageCircle size={24} className="text-base-700 mx-auto mb-2" />
-                <p className="text-xs text-base-500">No conversations found</p>
+                <p className="text-xs text-base-400 font-medium">
+                  {search
+                    ? 'No conversations found'
+                    : 'No conversations yet — messages sent to your WhatsApp number will appear here'}
+                </p>
               </div>
             ) : (
-              filtered.map(thread => (
+              filtered.map(conv => (
                 <ThreadItem
-                  key={thread.prospect.id}
-                  thread={thread}
-                  active={thread.prospect.id === (selected?.prospect.id ?? null)}
-                  onClick={() => setSelectedId(thread.prospect.id)}
+                  key={conv.id}
+                  conv={conv}
+                  active={conv.id === (selected?.id ?? null)}
+                  onClick={() => setSelectedId(conv.id)}
                 />
               ))
             )}
@@ -538,13 +510,17 @@ export function Conversations() {
         {/* Right: conversation */}
         <div className="flex-1 flex flex-col min-w-0">
           {selected ? (
-            <ConversationPanel key={selected.prospect.id} thread={selected} />
+            <ConversationPanel key={selected.id} conv={selected} />
           ) : (
             <Panel className="flex-1 flex items-center justify-center m-0 rounded-none border-0">
               <EmptyState
                 icon={<MessageCircle size={32} />}
-                title="Select a conversation"
-                sub="Choose a thread from the list to view messages"
+                title={conversations.length === 0
+                  ? 'No conversations yet'
+                  : 'Select a conversation'}
+                sub={conversations.length === 0
+                  ? 'Messages sent to your WhatsApp number will appear here'
+                  : 'Choose a thread from the list to view messages'}
               />
             </Panel>
           )}
