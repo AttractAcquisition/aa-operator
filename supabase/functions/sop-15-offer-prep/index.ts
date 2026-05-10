@@ -201,7 +201,7 @@ async function generateOfferDocument(
     messages: [
       {
         role: 'user',
-        content: [
+        content: [{ type: 'text', text: [
           'Generate the offer document for this prospect.',
           '',
           'PROSPECT:',
@@ -283,7 +283,7 @@ async function generateCallPrepSummary(
     messages: [
       {
         role: 'user',
-        content: [
+        content: [{ type: 'text', text: [
           'Generate the call prep summary for this prospect.',
           '',
           'PROSPECT:',

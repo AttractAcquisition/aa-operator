@@ -248,7 +248,6 @@ Deno.serve(async (req) => {
     // Fetch phones and company+niche combos that already exist in the DB.
 
     const phones    = valid.map(r => r.phone).filter(Boolean)
-    const companies = valid.map(r => `${r.company}||${r.niche ?? ''}`.toLowerCase())
 
     const [phoneCheck, companyCheck] = await Promise.all([
       phones.length > 0
