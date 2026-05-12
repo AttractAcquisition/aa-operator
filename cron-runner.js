@@ -117,6 +117,22 @@ async function runSop(sop_id, sop_name, fn) {
       }),
     ])
 
+    // Fire-and-forget push notification for cron failure
+    const pushUrl = `${SUPABASE_URL}/functions/v1/send-push-notification`
+    fetch(pushUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        title: '❌ Cron failure',
+        body:  `${sop_name} failed: ${message.slice(0, 100)}`,
+        url:   '/crons',
+        tag:   `cron-failure-${sop_id}`,
+      }),
+    }).catch(() => {/* ignore push errors in catch block */})
+
     console.error(`[${new Date().toISOString()}] SOP ${sop_id} FAILED: ${message}`)
   }
 }

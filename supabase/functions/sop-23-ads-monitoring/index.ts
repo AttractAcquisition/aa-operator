@@ -285,6 +285,15 @@ Deno.serve(async (req) => {
           errors.push(`kill alert ${adsetId}: ${killAlertErr.message}`)
         } else {
           alertsCreated++
+          // Fire-and-forget push notification for critical kill alert
+          supabase.functions.invoke('send-push-notification', {
+            body: {
+              title: '🚨 Ad set alert',
+              body:  `${client_name} CPL at £${avgCpl.toFixed(2)} vs £${cpl_target} target`,
+              url:   '/alerts',
+              tag:   `ads-alert-${adsetId}`,
+            },
+          })
         }
 
         // Approval queue item so the action is visible and reversible

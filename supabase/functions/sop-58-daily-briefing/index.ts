@@ -182,6 +182,16 @@ ${sprints.length > 0
       output_summary: `${priorityCount} priorities, ${snapshotCount} sprint snapshots written to daily_briefings`,
     })
 
+    // ── 7. Fire-and-forget push notification ──────────────────────────────────
+    supabase.functions.invoke('send-push-notification', {
+      body: {
+        title: '☀️ Morning briefing ready',
+        body:  `${priorityCount} priorities · ${warmLeads} warm leads`,
+        url:   '/',
+        tag:   'daily-briefing',
+      },
+    })
+
     return new Response(JSON.stringify(briefing), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

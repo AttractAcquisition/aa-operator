@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom'
 import { Bell, RefreshCw, Clock, LogOut, Menu } from 'lucide-react'
 import { format } from 'date-fns'
+import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
@@ -83,6 +84,8 @@ export function Header() {
         >
           <RefreshCw size={14} />
         </button>
+
+        <PushNotificationToggle />
 
         {/* Alerts bell — always shown */}
         <button className="relative flex items-center justify-center min-w-[44px] min-h-[44px] rounded text-base-500 hover:text-white hover:bg-base-700 transition-colors">

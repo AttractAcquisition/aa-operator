@@ -210,6 +210,16 @@ Deno.serve(async (req) => {
           },
         })
         approvalItemsCreated++
+
+        // Fire-and-forget push notification for warm lead
+        supabase.functions.invoke('send-push-notification', {
+          body: {
+            title: '🔥 Warm lead',
+            body:  `${prospect.name} — ${prospect.company} replied`,
+            url:   '/approvals',
+            tag:   `warm-lead-${prospect.id}`,
+          },
+        })
       }
     }
 
