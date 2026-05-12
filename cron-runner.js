@@ -19,7 +19,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 // Schedules mirror vercel.json. Timezone: Europe/London.
 
 const JOBS = [
-  { sop_id: '58', name: 'Admin Command Centre & Daily Review', schedule: '0 5 * * *'   },
+  { sop_id: '58', name: 'Admin Command Centre & Daily Review', schedule: '0 5 * * *',  fn: 'sop-58-daily-briefing'  },
   { sop_id: '21', name: 'Proof Sprint Daily Ops',              schedule: '30 6 * * *'  },
   { sop_id: '23', name: 'Proof Sprint Ads Monitoring',         schedule: '0 7 * * *'   },
   { sop_id: '06', name: 'Reply Triage & CRM Hygiene',          schedule: '30 7 * * *'  },
@@ -130,7 +130,11 @@ for (const job of JOBS) {
   console.log(`Scheduled SOP ${job.sop_id} (${job.name}) — ${job.schedule}`)
 }
 
-console.log(`Cron runner started — ${JOBS.length} jobs scheduled`)
+console.log(`AA Operator cron runner started — ${JOBS.length} jobs scheduled`)
+
+setInterval(() => {
+  console.log(`[${new Date().toISOString()}] Heartbeat — ${JOBS.length} jobs active`)
+}, 60 * 60 * 1000)
 
 // ─── Global crash handler ─────────────────────────────────────────────────────
 
