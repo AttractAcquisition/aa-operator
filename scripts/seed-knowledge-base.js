@@ -377,7 +377,7 @@ const MJR_TEMPLATE = `<!DOCTYPE html>
       15-minute strategy call and we'll show you exactly what we'd do for
       {{company_name}}.
     </p>
-    <a class="cta-btn" href="https://attractacquisition.com/call">Book Your Free Call</a>
+    <a class="cta-btn" href="https://attractacq.com/call">Book Your Free Call</a>
     <div class="cta-footnote">No pitch. No pressure. Just a straight conversation about your numbers.</div>
   </div>
 
@@ -385,7 +385,7 @@ const MJR_TEMPLATE = `<!DOCTYPE html>
 
 <div class="footer">
   This report was prepared exclusively for {{prospect_name}} at {{company_name}}.<br />
-  Attract Acquisition · attractacquisition.com<br />
+  Attract Acquisition · attractacq.com<br />
   <span style="color:#d1d5db;">To unsubscribe, reply with "remove" to this email.</span>
 </div>
 
@@ -863,7 +863,7 @@ const SPOA_TEMPLATE = `<!DOCTYPE html>
       we'll walk through the strategy together, answer any questions,
       and confirm a start date.
     </p>
-    <a class="cta-btn" href="https://attractacquisition.com/call">Book Your Strategy Call</a>
+    <a class="cta-btn" href="https://attractacq.com/call">Book Your Strategy Call</a>
     <div class="cta-footnote">No obligation. Cancel or pause any time after the minimum term.</div>
   </div>
 
@@ -871,7 +871,7 @@ const SPOA_TEMPLATE = `<!DOCTYPE html>
 
 <div class="footer">
   This Strategic Plan of Action was prepared exclusively for {{prospect_name}} at {{company_name}}.<br />
-  Attract Acquisition · attractacquisition.com<br />
+  Attract Acquisition · attractacq.com<br />
   <span style="color:#d1d5db;">To unsubscribe, reply "remove" and we'll take you off our list immediately.</span>
 </div>
 

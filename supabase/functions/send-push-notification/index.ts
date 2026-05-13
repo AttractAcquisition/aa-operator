@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
 
   const VAPID_PUBLIC_KEY  = Deno.env.get('VAPID_PUBLIC_KEY')  ?? ''
   const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
-  const VAPID_EMAIL       = Deno.env.get('VAPID_EMAIL')       ?? 'mailto:admin@attractacquisition.com'
+  const VAPID_EMAIL       = Deno.env.get('VAPID_EMAIL')       ?? 'mailto:admin@attractacq.com'
 
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     return new Response(
