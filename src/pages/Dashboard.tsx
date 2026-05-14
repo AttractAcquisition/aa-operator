@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -139,14 +139,24 @@ export function Dashboard() {
   const { data: taskLog = [], isLoading: logLoading } = useQuery({
     queryKey: ['ai_task_log_recent'],
     queryFn: fetchRecentTaskLog,
-    refetchInterval: 1000 * 60 * 2,
+    refetchInterval: 1000 * 60 * 5,
   })
 
   const { data: cronJobs = [], isLoading: cronLoading } = useQuery({
     queryKey: ['cron_schedule', 'active'],
     queryFn: fetchActiveCronJobs,
-    refetchInterval: 1000 * 60 * 2,
+    refetchInterval: 1000 * 60 * 5,
   })
+
+  // Realtime: immediately refresh task log when a new SOP run completes
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard_task_log_inserts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ai_task_log' },
+        () => { queryClient.invalidateQueries({ queryKey: ['ai_task_log_recent'] }) })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [queryClient])
 
   const [backupRunning, setBackupRunning] = useState(false)
 

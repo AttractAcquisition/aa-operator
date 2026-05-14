@@ -38,7 +38,7 @@ export function Header() {
         .eq('resolved', false)
       return count ?? 0
     },
-    refetchInterval: 1000 * 60 * 2,
+    refetchInterval: 1000 * 60 * 5,
   })
 
   return (

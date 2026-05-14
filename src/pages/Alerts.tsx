@@ -31,7 +31,7 @@ export function Alerts() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai_alerts'],
     queryFn:  fetchAlerts,
-    refetchInterval: 1000 * 60 * 2,
+    refetchInterval: 1000 * 60 * 5,
   })
 
   const alerts = (data ?? []) as AIAlert[]

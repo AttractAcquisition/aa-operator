@@ -40,7 +40,7 @@ export function Sidebar() {
       ])
       return { approvals: approvals.count ?? 0, alerts: alerts.count ?? 0 }
     },
-    refetchInterval: 1000 * 60 * 2,
+    refetchInterval: 1000 * 60 * 5,
   })
 
   return (

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 // TODO: no 'prospects' table migration exists yet — mockPipelineCounts and mockConversionChart
 // are fallbacks used when the live queries return empty results. Remove once the table is created.
@@ -311,8 +311,19 @@ export function Pipeline() {
   const countsQuery = useQuery({
     queryKey: ['pipeline_counts'],
     queryFn:  fetchPipelineCounts,
-    refetchInterval: 1000 * 60 * 2,
   })
+
+  // Realtime: invalidate pipeline counts on any prospect INSERT or UPDATE
+  useEffect(() => {
+    const channel = supabase
+      .channel('pipeline_prospects_changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'prospects' },
+        () => { queryClient.invalidateQueries({ queryKey: ['pipeline_counts'] }) })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'prospects' },
+        () => { queryClient.invalidateQueries({ queryKey: ['pipeline_counts'] }) })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [queryClient])
 
   const chartQuery = useQuery({
     queryKey: ['pipeline_weekly_chart'],
