@@ -1,3 +1,10 @@
+// SOP table separation:
+//   knowledge_base (AICOS, type='sop') — canonical source for SOP prompt content and
+//   instructions used by this Edge Function and all other automation Edge Functions.
+//   COS sops table — client-facing delivery SOP tracking (status, attachments, metadata).
+//   These are separate concerns. COS sops is NOT read here and should never be used
+//   to trigger automation runs.
+//
 // Model routing: getModel(sopId) returns the correct model for each SOP.
 // Haiku (claude-haiku-4-5-20251001) — mechanical tasks: scraping, dedup, CRM staging,
 //   reply classification, backup checks, finance rollup, structured-data writes.
