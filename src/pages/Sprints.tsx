@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 // live query returns empty results. Remove once the table is created.
 import { mockSprints } from '@/lib/mockData'
 import { Panel, StatCard, ProgressBar, Button, Spinner } from '@/components/ui'
-import { formatCurrency, getHealthColor, getSprintHealth, formatDate } from '@/lib/utils'
+import { formatCurrency, getHealthColor, formatDate } from '@/lib/utils'
 import { Zap, TrendingUp, DollarSign, Target, Play, BarChart2 } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { supabase } from '@/lib/supabase'
@@ -28,7 +28,7 @@ const trendData = [
 
 async function fetchActiveSprints(): Promise<LiveSprint[]> {
   const { data, error } = await supabase
-    .from('sprints')
+    .from('proof_sprints')
     .select('*')
     .eq('status', 'active')
     .order('start_date', { ascending: false })
@@ -46,12 +46,12 @@ function timeAgo(iso: string): string {
 }
 
 function SprintCard({ sprint, onRunOps }: { sprint: LiveSprint; onRunOps: () => void }) {
-  const health      = getSprintHealth(sprint.cpl, sprint.cpl_target)
+  const health      = 'on_track' as const
   const healthColor = getHealthColor(health)
   const { addNotification } = useAppStore()
 
-  const healthLabel = health === 'on_track' ? 'ON TRACK' : health === 'at_risk' ? 'AT RISK' : 'OFF TRACK'
-  const spendPerDay = formatCurrency(sprint.spend / Math.max(sprint.day_number, 1))
+  const healthLabel = 'ACTIVE'
+  const spendPerDay = formatCurrency((sprint.actual_ad_spend ?? 0) / Math.max(sprint.sprint_number ?? 1, 1))
 
   return (
     <Panel className="p-4">
@@ -59,11 +59,11 @@ function SprintCard({ sprint, onRunOps }: { sprint: LiveSprint; onRunOps: () => 
       <div className="flex items-start justify-between mb-3">
         <div>
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${health === 'on_track' ? 'bg-green-op' : health === 'at_risk' ? 'bg-amber-op' : 'bg-red-op'}`} />
+            <div className="w-2 h-2 rounded-full bg-green-op" />
             <h3 className="font-display font-bold text-white text-base uppercase">{sprint.client_name}</h3>
           </div>
           <p className="text-xs text-base-500 font-mono mt-0.5">
-            Day {sprint.day_number}/14 · Started {formatDate(sprint.start_date)}
+            Sprint #{sprint.sprint_number ?? '—'} · Started {formatDate(sprint.start_date)}
           </p>
         </div>
         <span
@@ -79,34 +79,34 @@ function SprintCard({ sprint, onRunOps }: { sprint: LiveSprint; onRunOps: () => 
         <div>
           <div className="flex justify-between mb-1">
             <span className="text-[10px] text-base-500 font-mono">LEADS</span>
-            <span className="text-[10px] font-mono text-white">{sprint.leads_generated}/{sprint.leads_target}</span>
+            <span className="text-[10px] font-mono text-white">{sprint.leads_generated ?? 0}</span>
           </div>
           <ProgressBar
-            value={sprint.leads_generated}
-            max={sprint.leads_target}
-            color={health === 'on_track' ? 'green' : health === 'at_risk' ? 'amber' : 'red'}
+            value={sprint.leads_generated ?? 0}
+            max={Math.max(sprint.leads_generated ?? 1, 1)}
+            color="green"
             showLabel
           />
         </div>
         <div>
           <div className="flex justify-between mb-1">
             <span className="text-[10px] text-base-500 font-mono">SPEND</span>
-            <span className="text-[10px] font-mono text-white">{formatCurrency(sprint.spend)}/{formatCurrency(sprint.spend_budget)}</span>
+            <span className="text-[10px] font-mono text-white">{formatCurrency(sprint.actual_ad_spend ?? 0)}/{formatCurrency(sprint.client_ad_budget ?? 0)}</span>
           </div>
-          <ProgressBar value={sprint.spend} max={sprint.spend_budget} color="electric" showLabel />
+          <ProgressBar value={sprint.actual_ad_spend ?? 0} max={sprint.client_ad_budget ?? 1} color="electric" showLabel />
         </div>
       </div>
 
       {/* KPI tiles */}
       <div className="grid grid-cols-3 gap-2 mb-3">
         {[
-          { label: 'CPL',       value: `£${sprint.cpl.toFixed(2)}`,  target: `£${sprint.cpl_target}`,  good: sprint.cpl <= sprint.cpl_target },
-          { label: 'ROAS',      value: `${sprint.roas.toFixed(1)}x`, target: `${sprint.roas_target}x`, good: sprint.roas >= sprint.roas_target },
-          { label: 'SPEND/DAY', value: spendPerDay,                  target: '—',                       good: true },
+          { label: 'LEADS',     value: `${sprint.leads_generated ?? 0}`,          target: '—', good: true },
+          { label: 'SPEND',     value: formatCurrency(sprint.actual_ad_spend ?? 0), target: formatCurrency(sprint.client_ad_budget ?? 0), good: true },
+          { label: 'SPEND/DAY', value: spendPerDay,                                target: '—', good: true },
         ].map(k => (
           <div key={k.label} className="p-2 rounded bg-base-750 border border-base-700">
             <p className="text-[9px] text-base-500 font-mono uppercase">{k.label}</p>
-            <p className={`text-base font-display font-bold ${k.good ? 'text-green-op' : 'text-red-op'}`}>{k.value}</p>
+            <p className="text-base font-display font-bold text-green-op">{k.value}</p>
             <p className="text-[9px] text-base-600 font-mono">target {k.target}</p>
           </div>
         ))}
@@ -176,9 +176,9 @@ export function Sprints() {
   const sprints  = (data && data.length > 0 ? data : mockSprints) as LiveSprint[]
   const isLive   = data && data.length > 0
 
-  const onTrack  = sprints.filter(s => getSprintHealth(s.cpl, s.cpl_target) === 'on_track').length
-  const atRisk   = sprints.filter(s => getSprintHealth(s.cpl, s.cpl_target) === 'at_risk').length
-  const offTrack = sprints.filter(s => getSprintHealth(s.cpl, s.cpl_target) === 'off_track').length
+  const onTrack  = sprints.length
+  const atRisk   = 0
+  const offTrack = 0
 
   // Most recent Meta sync across all sprints (for subtitle)
   const lastSync = isLive

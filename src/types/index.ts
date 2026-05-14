@@ -33,57 +33,55 @@ export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'edited'
 
 export interface Prospect {
   id: string
-  name: string
-  company: string
-  phone: string
-  status: ProspectStatus
-  quality_score: number
+  business_name: string
+  owner_name: string | null
+  phone: string | null
+  whatsapp: string | null
+  status: string | null
+  pipeline_stage: string | null
+  icp_total_score: number | null
+  icp_tier: string | null
+  vertical: string | null
+  city: string | null
+  suburb: string | null
+  source_list: string | null
+  reply_classification: string | null
+  last_reply_at: string | null
   created_at: string
-  enrichment_data?: {
-    company_size?: string
-    trading_since?: string
-    review_count?: number
-    niche?: string
-    website_quality?: number
-    notes?: string
-  }
-  source_list?: string
-  last_reply_at?: string
-  reply_classification?: string
+  is_archived: boolean | null
 }
 
 export interface Sprint {
   id: string
-  client_id: string
-  client_name: string
-  status: SprintStatus
+  client_id: string | null
+  client_name: string | null
+  sprint_number: number | null
+  status: string | null
   start_date: string
-  end_date: string
-  day_number: number
-  leads_generated: number
-  leads_target: number
-  spend: number
-  spend_budget: number
-  cpl: number
-  cpl_target: number
-  roas: number
-  roas_target: number
-  last_log_at: string
-  campaign_ids: string[]
+  leads_generated: number | null
+  actual_ad_spend: number | null
+  client_ad_budget: number | null
+  revenue_attributed: number | null
+  bookings_from_sprint: number | null
+  results_meeting_outcome: string | null
+  vertical: string | null
 }
 
 export interface Client {
   id: string
-  name: string
-  company: string
-  tier: 'proof_sprint' | 'proof_brand' | 'authority_brand'
-  status: 'active' | 'paused' | 'churned' | 'onboarding'
-  mrr: number
-  start_date: string
-  next_review_date?: string
-  account_manager?: string
-  niche: string
-  active_sprint_id?: string
+  business_name: string
+  owner_name: string | null
+  tier: string | null
+  status: string | null
+  monthly_retainer: number | null
+  contract_start_date: string | null
+  account_manager: string | null
+  niche: string | null
+  active_sprint_id: string | null
+  notes: string | null
+  email: string | null
+  phone: string | null
+  contact_phone: string | null
 }
 
 export interface ApprovalItem {

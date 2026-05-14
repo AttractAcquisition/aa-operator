@@ -42,7 +42,7 @@ export async function updateProspectStatus(
   status: ProspectStatus,
   replyClassification?: string,
 ): Promise<Prospect> {
-  const patch: Record<string, unknown> = { status }
+  const patch: Record<string, unknown> = { status, pipeline_stage: status }
   if (replyClassification !== undefined) patch.reply_classification = replyClassification
 
   const { data, error } = await supabase
@@ -61,6 +61,7 @@ export interface CreateApprovalItemInput {
   sop_name: string
   type: ApprovalType
   priority: 'high' | 'medium' | 'low'
+  client_id?: string | null
   content: {
     title: string
     body: string
@@ -79,6 +80,7 @@ export async function createApprovalItem(
     .insert({
       sop_id: input.sop_id,
       sop_name: input.sop_name,
+      client_id: input.client_id ?? null,
       status: 'pending',
       priority: input.priority,
       content: input.content,

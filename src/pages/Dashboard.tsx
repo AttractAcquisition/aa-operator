@@ -50,7 +50,7 @@ async function fetchKPIs(): Promise<DashboardKPIs> {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'warm'),
     supabase
-      .from('sprints')
+      .from('proof_sprints')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'active'),
     supabase

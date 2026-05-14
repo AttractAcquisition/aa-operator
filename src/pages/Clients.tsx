@@ -5,11 +5,11 @@ import {
   Users, Zap, DollarSign, ExternalLink, X,
   TrendingUp, FileText, BarChart2,
 } from 'lucide-react'
-import { formatCurrency, cn, getSprintHealth, getHealthColor } from '@/lib/utils'
+import { formatCurrency, cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import type { Client, Sprint } from '@/types'
 import {
-  AreaChart, Area, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip,
+  AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip,
 } from 'recharts'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -18,10 +18,10 @@ type ClientWithSprint = Client & { sprint: Sprint | null }
 type DrawerTab = 'overview' | 'performance' | 'reports'
 
 interface SprintLogEntry {
-  logged_at:       string
-  cpl:             number
-  roas:            number
-  leads_generated: number
+  id:       string
+  log_date: string
+  spend:    number
+  leads:    number
 }
 
 interface ReportItem {
@@ -66,10 +66,9 @@ function fmtDate(iso: string): string {
 // ── Data fetcher ──────────────────────────────────────────────────────────────
 
 async function fetchClientsWithSprints(): Promise<ClientWithSprint[]> {
-  // TODO: sprints table not yet created — sprint column will be null until migration is added
   const [clientsRes, sprintsRes] = await Promise.all([
-    supabase.from('clients').select('*').order('start_date', { ascending: false }),
-    supabase.from('sprints').select('*').eq('status', 'active'),
+    supabase.from('clients').select('*').order('contract_start_date', { ascending: false }),
+    supabase.from('proof_sprints').select('*').eq('status', 'active'),
   ])
 
   if (clientsRes.error) throw new Error(clientsRes.error.message)
@@ -88,10 +87,6 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
   const [generating, setGenerating] = useState(false)
 
   const { sprint } = client
-  const health      = sprint ? getSprintHealth(sprint.cpl, sprint.cpl_target) : null
-  const healthLabel = health
-    ? { on_track: 'ON TRACK', at_risk: 'AT RISK', off_track: 'OFF TRACK' }[health]
-    : null
 
   // ── Reports query ─────────────────────────────────────────────────────────
   const { data: reports = [], isLoading: reportsLoading } = useQuery<ReportItem[]>({
@@ -142,10 +137,10 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
     queryFn: async () => {
       if (!sprint?.id) return []
       const { data, error } = await supabase
-        .from('sprint_logs')
-        .select('logged_at, cpl, roas, leads_generated')
+        .from('sprint_daily_log')
+        .select('id, log_date, spend, leads')
         .eq('sprint_id', sprint.id)
-        .order('logged_at', { ascending: true })
+        .order('log_date', { ascending: true })
         .limit(14)
       if (error) throw new Error(error.message)
       return (data ?? []) as SprintLogEntry[]
@@ -174,8 +169,8 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
   }
 
   const chartData = sprintLogs.map(l => ({
-    day: l.logged_at.slice(5, 10),
-    cpl: Number(l.cpl.toFixed(2)),
+    day: l.log_date.slice(5, 10),
+    spend: Number((l.spend ?? 0).toFixed(0)),
   }))
 
   return (
@@ -196,10 +191,10 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
           <div className="flex items-start justify-between">
             <div>
               <h2 className="font-display font-bold text-white text-xl uppercase tracking-wide">
-                {client.company}
+                {client.business_name}
               </h2>
               <p className="text-xs text-base-500 font-mono mt-0.5">
-                {client.name} · {client.niche}
+                {client.owner_name ?? client.business_name} · {client.niche}
               </p>
             </div>
             <button
@@ -212,8 +207,8 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
 
           {/* Badges */}
           <div className="flex gap-2 flex-wrap">
-            <span className={cn('text-[10px] font-mono font-bold px-2 py-0.5 rounded border', tierColor[client.tier])}>
-              {tierLabel[client.tier]}
+            <span className={cn('text-[10px] font-mono font-bold px-2 py-0.5 rounded border', tierColor[client.tier ?? ''] ?? 'text-electric border-electric/20 bg-electric/5')}>
+              {tierLabel[client.tier ?? ''] ?? client.tier ?? '—'}
             </span>
             <span className={cn(
               'text-[10px] font-mono font-bold px-2 py-0.5 rounded border',
@@ -221,7 +216,7 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
                 ? 'text-green-op border-green-op/20 bg-green-op/5'
                 : 'text-amber-op border-amber-op/20 bg-amber-op/5',
             )}>
-              {client.status.toUpperCase()}
+              {client.status?.toUpperCase() ?? '—'}
             </span>
           </div>
 
@@ -257,17 +252,13 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] text-base-500 font-mono">MRR</span>
                     <span className="text-base font-display font-bold text-green-op">
-                      {formatCurrency(client.mrr)}
+                      {formatCurrency(client.monthly_retainer ?? 0)}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-base-500 font-mono">STARTED</span>
-                    <span className="text-xs font-mono text-white">{fmtDate(client.start_date)}</span>
-                  </div>
-                  {client.next_review_date && (
+                  {client.contract_start_date && (
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-base-500 font-mono">NEXT REVIEW</span>
-                      <span className="text-xs font-mono text-white">{fmtDate(client.next_review_date)}</span>
+                      <span className="text-[10px] text-base-500 font-mono">STARTED</span>
+                      <span className="text-xs font-mono text-white">{fmtDate(client.contract_start_date)}</span>
                     </div>
                   )}
                   {client.account_manager && (
@@ -284,23 +275,20 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
                   <p className="text-[10px] font-mono text-base-500 uppercase mb-2">Active Sprint</p>
                   <Panel className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono text-white">Day {sprint.day_number}/14</span>
-                      <span className={cn('text-[10px] font-mono font-bold', health ? getHealthColor(health) : '')}>
-                        {healthLabel}
-                      </span>
+                      <span className="text-xs font-mono text-white">Sprint #{sprint.sprint_number ?? '—'}</span>
                     </div>
                     <div className="space-y-2">
                       <div>
                         <div className="flex justify-between mb-1">
                           <span className="text-[10px] text-base-500 font-mono">LEADS</span>
                           <span className="text-[10px] font-mono text-white">
-                            {sprint.leads_generated}/{sprint.leads_target}
+                            {sprint.leads_generated ?? 0}
                           </span>
                         </div>
                         <ProgressBar
-                          value={sprint.leads_generated}
-                          max={sprint.leads_target}
-                          color={health === 'on_track' ? 'green' : health === 'at_risk' ? 'amber' : 'red'}
+                          value={sprint.leads_generated ?? 0}
+                          max={Math.max(sprint.leads_generated ?? 1, 1)}
+                          color="green"
                           showLabel
                         />
                       </div>
@@ -308,36 +296,30 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
                         <div className="flex justify-between mb-1">
                           <span className="text-[10px] text-base-500 font-mono">SPEND</span>
                           <span className="text-[10px] font-mono text-white">
-                            {formatCurrency(sprint.spend)}/{formatCurrency(sprint.spend_budget)}
+                            {formatCurrency(sprint.actual_ad_spend ?? 0)}/{formatCurrency(sprint.client_ad_budget ?? 0)}
                           </span>
                         </div>
-                        <ProgressBar value={sprint.spend} max={sprint.spend_budget} color="electric" showLabel />
+                        <ProgressBar value={sprint.actual_ad_spend ?? 0} max={sprint.client_ad_budget ?? 1} color="electric" showLabel />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="p-2.5 rounded bg-base-750 border border-base-700">
-                        <p className="text-[9px] text-base-500 font-mono uppercase">CPL</p>
-                        <p className={cn(
-                          'text-lg font-display font-bold',
-                          sprint.cpl <= sprint.cpl_target ? 'text-green-op' : 'text-red-op',
-                        )}>
-                          £{sprint.cpl.toFixed(2)}
+                        <p className="text-[9px] text-base-500 font-mono uppercase">LEADS</p>
+                        <p className="text-lg font-display font-bold text-green-op">
+                          {sprint.leads_generated ?? 0}
                         </p>
-                        <p className="text-[9px] text-base-600 font-mono">target £{sprint.cpl_target}</p>
+                        <p className="text-[9px] text-base-600 font-mono">generated</p>
                       </div>
                       <div className="p-2.5 rounded bg-base-750 border border-base-700">
-                        <p className="text-[9px] text-base-500 font-mono uppercase">ROAS</p>
-                        <p className={cn(
-                          'text-lg font-display font-bold',
-                          sprint.roas >= sprint.roas_target ? 'text-green-op' : 'text-red-op',
-                        )}>
-                          {sprint.roas.toFixed(1)}x
+                        <p className="text-[9px] text-base-500 font-mono uppercase">BUDGET</p>
+                        <p className="text-lg font-display font-bold text-electric">
+                          {formatCurrency(sprint.client_ad_budget ?? 0)}
                         </p>
-                        <p className="text-[9px] text-base-600 font-mono">target {sprint.roas_target}x</p>
+                        <p className="text-[9px] text-base-600 font-mono">total</p>
                       </div>
                     </div>
                     <p className="text-[9px] text-base-600 font-mono">
-                      {sprint.start_date} → {sprint.end_date}
+                      Started {sprint.start_date}
                     </p>
                   </Panel>
                 </div>
@@ -354,7 +336,7 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
             sprint ? (
               <>
                 <div>
-                  <p className="text-[10px] font-mono text-base-500 uppercase mb-2">CPL Trend — Current Sprint</p>
+                  <p className="text-[10px] font-mono text-base-500 uppercase mb-2">Spend Trend — Current Sprint</p>
                   <Panel className="p-4">
                     {logsLoading ? (
                       <div className="flex justify-center py-8"><Spinner size={24} /></div>
@@ -392,24 +374,12 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
                               fontFamily: 'monospace',
                               color: '#f9fafb',
                             }}
-                            formatter={(v: number) => [`£${v.toFixed(2)}`, 'CPL']}
+                            formatter={(v: number) => [`£${v.toFixed(0)}`, 'Spend']}
                             labelStyle={{ color: '#9ca3af', marginBottom: 4 }}
-                          />
-                          <ReferenceLine
-                            y={sprint.cpl_target}
-                            stroke="#22c55e"
-                            strokeDasharray="3 3"
-                            label={{
-                              value: `target £${sprint.cpl_target}`,
-                              fill: '#22c55e',
-                              fontSize: 9,
-                              fontFamily: 'monospace',
-                              position: 'insideTopRight',
-                            }}
                           />
                           <Area
                             type="monotone"
-                            dataKey="cpl"
+                            dataKey="spend"
                             stroke="#00d4ff"
                             strokeWidth={1.5}
                             fill="url(#cplGrad)"
@@ -424,38 +394,32 @@ function ClientDrawer({ client, onClose }: { client: ClientWithSprint; onClose: 
 
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-3 rounded bg-base-800 border border-base-700">
-                    <p className="text-[9px] text-base-500 font-mono uppercase mb-1">Current CPL</p>
-                    <p className={cn(
-                      'text-xl font-display font-bold',
-                      sprint.cpl <= sprint.cpl_target ? 'text-green-op' : 'text-red-op',
-                    )}>
-                      £{sprint.cpl.toFixed(2)}
+                    <p className="text-[9px] text-base-500 font-mono uppercase mb-1">Sprint #</p>
+                    <p className="text-xl font-display font-bold text-electric">
+                      {sprint.sprint_number ?? '—'}
                     </p>
-                    <p className="text-[9px] text-base-600 font-mono">target £{sprint.cpl_target}</p>
+                    <p className="text-[9px] text-base-600 font-mono">sprint number</p>
                   </div>
                   <div className="p-3 rounded bg-base-800 border border-base-700">
-                    <p className="text-[9px] text-base-500 font-mono uppercase mb-1">ROAS</p>
-                    <p className={cn(
-                      'text-xl font-display font-bold',
-                      sprint.roas >= sprint.roas_target ? 'text-green-op' : 'text-red-op',
-                    )}>
-                      {sprint.roas.toFixed(1)}x
+                    <p className="text-[9px] text-base-500 font-mono uppercase mb-1">Budget</p>
+                    <p className="text-xl font-display font-bold text-white">
+                      {formatCurrency(sprint.client_ad_budget ?? 0)}
                     </p>
-                    <p className="text-[9px] text-base-600 font-mono">target {sprint.roas_target}x</p>
+                    <p className="text-[9px] text-base-600 font-mono">total budget</p>
                   </div>
                   <div className="p-3 rounded bg-base-800 border border-base-700">
                     <p className="text-[9px] text-base-500 font-mono uppercase mb-1">Leads</p>
                     <p className="text-xl font-display font-bold text-white">
-                      {sprint.leads_generated}
+                      {sprint.leads_generated ?? 0}
                     </p>
-                    <p className="text-[9px] text-base-600 font-mono">of {sprint.leads_target} target</p>
+                    <p className="text-[9px] text-base-600 font-mono">generated</p>
                   </div>
                   <div className="p-3 rounded bg-base-800 border border-base-700">
                     <p className="text-[9px] text-base-500 font-mono uppercase mb-1">Spend</p>
                     <p className="text-xl font-display font-bold text-electric">
-                      {formatCurrency(sprint.spend)}
+                      {formatCurrency(sprint.actual_ad_spend ?? 0)}
                     </p>
-                    <p className="text-[9px] text-base-600 font-mono">of {formatCurrency(sprint.spend_budget)}</p>
+                    <p className="text-[9px] text-base-600 font-mono">of {formatCurrency(sprint.client_ad_budget ?? 0)}</p>
                   </div>
                 </div>
               </>
@@ -565,18 +529,18 @@ function ClientCard({
     <Panel className="p-4">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="font-display font-bold text-white uppercase">{client.company}</h3>
-          <p className="text-xs text-base-500 mt-0.5">{client.name} · {client.niche}</p>
+          <h3 className="font-display font-bold text-white uppercase">{client.business_name}</h3>
+          <p className="text-xs text-base-500 mt-0.5">{client.owner_name ?? client.business_name} · {client.niche}</p>
         </div>
-        <span className={cn('text-[10px] font-mono font-bold px-2 py-0.5 rounded border', tierColor[client.tier])}>
-          {tierLabel[client.tier]}
+        <span className={cn('text-[10px] font-mono font-bold px-2 py-0.5 rounded border', tierColor[client.tier ?? ''] ?? 'text-electric border-electric/20 bg-electric/5')}>
+          {tierLabel[client.tier ?? ''] ?? client.tier ?? '—'}
         </span>
       </div>
 
       <div className="space-y-2 mb-3">
         <div className="flex justify-between">
           <span className="text-[10px] text-base-500 font-mono">MRR</span>
-          <span className="text-sm font-mono font-bold text-green-op">{formatCurrency(client.mrr)}</span>
+          <span className="text-sm font-mono font-bold text-green-op">{formatCurrency(client.monthly_retainer ?? 0)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-[10px] text-base-500 font-mono">STATUS</span>
@@ -584,7 +548,7 @@ function ClientCard({
             'text-[10px] font-mono font-bold',
             client.status === 'active' ? 'text-green-op' : 'text-amber-op',
           )}>
-            {client.status.toUpperCase()}
+            {client.status?.toUpperCase() ?? '—'}
           </span>
         </div>
       </div>
@@ -592,10 +556,10 @@ function ClientCard({
       {sprint && (
         <div className="p-2.5 rounded bg-base-750 border border-base-700 mb-3">
           <div className="flex justify-between mb-1.5">
-            <span className="text-[10px] text-base-500 font-mono">SPRINT DAY {sprint.day_number}/14</span>
-            <span className="text-[10px] font-mono text-white">{sprint.leads_generated} leads</span>
+            <span className="text-[10px] text-base-500 font-mono">SPRINT #{sprint.sprint_number ?? '—'}</span>
+            <span className="text-[10px] font-mono text-white">{sprint.leads_generated ?? 0} leads</span>
           </div>
-          <ProgressBar value={sprint.day_number} max={14} color="electric" showLabel />
+          <ProgressBar value={sprint.actual_ad_spend ?? 0} max={sprint.client_ad_budget ?? 1} color="electric" showLabel />
         </div>
       )}
 
@@ -625,7 +589,7 @@ export function Clients() {
   const clients  = data ?? []
 
   const active       = clients.filter(c => c.status === 'active').length
-  const totalMRR     = clients.reduce((a, c) => a + c.mrr, 0)
+  const totalMRR     = clients.reduce((a, c) => a + (c.monthly_retainer ?? 0), 0)
   const activeSpints = clients.filter(c => c.sprint !== null).length
 
   return (

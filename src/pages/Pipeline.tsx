@@ -61,16 +61,11 @@ interface WeekPoint { week: string; contacted: number; replied: number; warm: nu
 // ── Data fetchers ─────────────────────────────────────────────────────────────
 
 async function fetchPipelineCounts(): Promise<PipelineCounts> {
-  const results = await Promise.all(
-    COUNT_STATUSES.map(status =>
-      supabase
-        .from('prospects')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', status),
-    ),
-  )
+  const { data, error } = await supabase.rpc('get_pipeline_counts')
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as { status: string; count: number }[]
   return Object.fromEntries(
-    COUNT_STATUSES.map((key, i) => [key, results[i].count ?? 0]),
+    COUNT_STATUSES.map(key => [key, rows.find(r => r.status === key)?.count ?? 0]),
   ) as PipelineCounts
 }
 
@@ -105,9 +100,9 @@ async function fetchWeeklyChart(): Promise<WeekPoint[]> {
 async function fetchProspectsAtStage(status: string): Promise<Prospect[]> {
   const { data, error } = await supabase
     .from('prospects')
-    .select('id, name, company, phone, status, quality_score, created_at, last_reply_at, reply_classification, source_list, enrichment_data')
+    .select('id, owner_name, business_name, phone, status, pipeline_stage, icp_total_score, created_at, last_reply_at, reply_classification, source_list')
     .eq('status', status)
-    .order('quality_score', { ascending: false })
+    .order('icp_total_score', { ascending: false })
     .limit(50)
   if (error) throw new Error(error.message)
   return (data ?? []) as Prospect[]
@@ -137,7 +132,7 @@ function ProspectRow({
   onMove: (p: Prospect) => void
   isMoving: boolean
 }) {
-  const next = NEXT_STATUS[prospect.status]
+  const next = prospect.status ? NEXT_STATUS[prospect.status as ProspectStatus] : undefined
   const lastActivity = prospect.last_reply_at ?? prospect.created_at
 
   return (
@@ -145,11 +140,11 @@ function ProspectRow({
       {/* Name / company */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white truncate">{prospect.company}</span>
-          <QualityBadge score={prospect.quality_score} />
+          <span className="text-sm font-medium text-white truncate">{prospect.business_name}</span>
+          <QualityBadge score={prospect.icp_total_score ?? 0} />
         </div>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[11px] text-base-500 truncate">{prospect.name}</span>
+          <span className="text-[11px] text-base-500 truncate">{prospect.owner_name ?? prospect.business_name}</span>
           <span className="text-[10px] text-base-600 font-mono flex-shrink-0">
             {formatRelative(lastActivity)}
           </span>
@@ -194,7 +189,7 @@ function StageDrawer({
   })
 
   const handleMove = async (prospect: Prospect) => {
-    const next = NEXT_STATUS[prospect.status]
+    const next = prospect.status ? NEXT_STATUS[prospect.status as ProspectStatus] : undefined
     if (!next || movingId) return
     setMovingId(prospect.id)
     try {
@@ -203,7 +198,7 @@ function StageDrawer({
         queryClient.invalidateQueries({ queryKey: ['pipeline_counts'] }),
         queryClient.invalidateQueries({ queryKey: ['pipeline_stage_prospects', stage.key] }),
       ])
-      addNotification(`${prospect.company} → ${next.replace(/_/g, ' ')}`, 'success')
+      addNotification(`${prospect.business_name} → ${next.replace(/_/g, ' ')}`, 'success')
       onMoved()
     } catch (err) {
       addNotification(

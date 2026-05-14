@@ -64,7 +64,8 @@ export function getSprintStatusColor(status: SprintStatus) {
   }
 }
 
-export function getSprintHealth(cpl: number, cplTarget: number): 'on_track' | 'at_risk' | 'off_track' {
+export function getSprintHealth(cpl: number | null | undefined, cplTarget: number | null | undefined): 'on_track' | 'at_risk' | 'off_track' {
+  if (!cpl || !cplTarget) return 'on_track'
   const ratio = cpl / cplTarget
   if (ratio <= 1.1) return 'on_track'
   if (ratio <= 1.4) return 'at_risk'
