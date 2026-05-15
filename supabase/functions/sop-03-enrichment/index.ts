@@ -166,6 +166,10 @@ Deno.serve(async (req) => {
     let errors = 0
 
     for (const prospect of unique) {
+      if (!prospect.business_name?.trim()) {
+        console.warn(`SOP 03: skipping prospect ${prospect.id} — missing business_name`)
+        continue
+      }
       try {
         const result = await enrichProspect(prospect)
         const newStatus = result.icp_total_score >= 5 ? 'enriched' : 'low_quality'

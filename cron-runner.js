@@ -23,6 +23,7 @@ const JOBS = [
   { sop_id: '21', name: 'Proof Sprint Daily Ops',              schedule: '30 6 * * *'  },
   { sop_id: '23', name: 'Proof Sprint Ads Monitoring',         schedule: '0 7 * * *'   },
   { sop_id: '06', name: 'Reply Triage & CRM Hygiene',          schedule: '30 7 * * *'  },
+  { sop_id: '03-poll', name: 'Prospect Enrichment Poller',     schedule: '*/5 * * * *', fn: 'sop-03-enrichment' },
   { sop_id: '01', name: 'WhatsApp Outreach Draft Queue',       schedule: '0 8 * * 1-5' },
   { sop_id: '47', name: 'Weekly Client Reporting',             schedule: '0 17 * * 5'  },
   { sop_id: '51', name: 'Admin Check',                         schedule: '30 6 * * 1', fn: 'sop-51-admin-check'       },
