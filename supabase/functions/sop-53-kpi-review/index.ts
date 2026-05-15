@@ -1,10 +1,10 @@
-// Model: claude-sonnet-4-6 — monthly KPI analysis and trend commentary.
+// Model: claude-haiku-4-5-20251001 — monthly KPI analysis and trend commentary.
 import Anthropic from 'npm:@anthropic-ai/sdk@0.36.3'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') })
-const SONNET   = 'claude-sonnet-4-6'
+const HAIKU   = 'claude-haiku-4-5-20251001'
 const SOP_ID   = '53'
 const SOP_NAME = 'SOP 53 — Monthly KPI Review'
 
@@ -93,7 +93,7 @@ async function generateCommentary(
   ).join('\n')
 
   const response = await anthropic.messages.create({
-    model:      SONNET,
+    model:      HAIKU,
     max_tokens: 1000,
     system: [{ type: 'text', text: [
       'You are a performance analyst for Attract Acquisition, a paid advertising agency.',
@@ -326,7 +326,7 @@ Deno.serve(async (req) => {
     await supabase.from('ai_task_log').insert({
       sop_id:         SOP_ID,
       sop_name:       SOP_NAME,
-      tool_called:    SONNET,
+      tool_called:    HAIKU,
       status:         'success',
       duration_ms:    Date.now() - startedAt,
       input_summary:  `${currProspects.length} curr prospects, ${currLogs.length} sprint logs, £${currTotalIncome} income`,
@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
       await supabase.from('ai_task_log').insert({
         sop_id:         SOP_ID,
         sop_name:       SOP_NAME,
-        tool_called:    SONNET,
+        tool_called:    HAIKU,
         status:         'failure',
         duration_ms:    Date.now() - startedAt,
         input_summary:  'kpi review run',

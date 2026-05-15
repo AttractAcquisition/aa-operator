@@ -1,10 +1,10 @@
-// Model: claude-sonnet-4-6 — billing chase WhatsApp message generation.
+// Model: claude-haiku-4-5-20251001 — billing chase WhatsApp message generation.
 import Anthropic from 'npm:@anthropic-ai/sdk@0.36.3'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') })
-const SONNET    = 'claude-sonnet-4-6'
+const HAIKU    = 'claude-haiku-4-5-20251001'
 const SOP_ID    = '46'
 const SOP_NAME  = 'SOP 46 — Billing & Payment Chase'
 
@@ -65,7 +65,7 @@ TOTAL OWED: £${totalOwed.toFixed(2)}
 MOST OVERDUE: ${maxDays} days`
 
   const response = await anthropic.messages.create({
-    model:      SONNET,
+    model:      HAIKU,
     max_tokens: 400,
     system: [{ type: 'text', text: [
       'You write short, warm, professional WhatsApp payment chase messages for Attract Acquisition,',
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
       await supabase.from('ai_task_log').insert({
         sop_id:         SOP_ID,
         sop_name:       SOP_NAME,
-        tool_called:    SONNET,
+        tool_called:    HAIKU,
         status:         'success',
         duration_ms:    Date.now() - startedAt,
         input_summary:  '0 active clients',
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
       await supabase.from('ai_task_log').insert({
         sop_id:         SOP_ID,
         sop_name:       SOP_NAME,
-        tool_called:    SONNET,
+        tool_called:    HAIKU,
         status:         'success',
         duration_ms:    Date.now() - startedAt,
         input_summary:  `${clients.length} active clients checked`,
@@ -304,7 +304,7 @@ Deno.serve(async (req) => {
     await supabase.from('ai_task_log').insert({
       sop_id:         SOP_ID,
       sop_name:       SOP_NAME,
-      tool_called:    SONNET,
+      tool_called:    HAIKU,
       status:         errors.length > 0 && approvalsCreated === 0 ? 'failure' : 'success',
       duration_ms:    Date.now() - startedAt,
       input_summary:  `${clients.length} active clients, ${ledger.length} overdue invoices`,
@@ -334,7 +334,7 @@ Deno.serve(async (req) => {
       await supabase.from('ai_task_log').insert({
         sop_id:         SOP_ID,
         sop_name:       SOP_NAME,
-        tool_called:    SONNET,
+        tool_called:    HAIKU,
         status:         'failure',
         duration_ms:    Date.now() - startedAt,
         input_summary:  'billing run',

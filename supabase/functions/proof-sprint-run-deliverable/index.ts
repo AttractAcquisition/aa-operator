@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import Anthropic from 'npm:@anthropic-ai/sdk@0.27'
+import Anthropic from 'npm:@anthropic-ai/sdk@0.36.3'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const DELIVERABLE_LABELS: Record<string, string> = {
