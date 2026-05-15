@@ -10,23 +10,14 @@ const MAX_LOOP_ITERATIONS = 8
 
 const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_uses: 5 } as Anthropic.Tool
 
-interface EnrichmentData {
-  review_count: number | null
-  trading_since: string | null
-  has_website: boolean
-  niche_fit: boolean
-  summary: string
-}
-
 interface ProspectRow {
   id: string
-  name: string
-  company: string
+  owner_name: string
+  business_name: string
   phone: string | null
-  niche: string | null
-  location: string | null
-  quality_score: number
-  enrichment_data: EnrichmentData | null
+  vertical: string | null
+  city: string | null
+  icp_total_score: number
 }
 
 interface ObjectionHandler {
@@ -48,9 +39,8 @@ interface CallBrief {
 
 // Single agentic loop: research the business then output the structured brief.
 async function generateCallBrief(prospect: ProspectRow): Promise<CallBrief> {
-  const ed = prospect.enrichment_data
-  const niche = prospect.niche ?? 'local service business'
-  const location = prospect.location ?? 'UK'
+  const niche = prospect.vertical ?? 'local service business'
+  const location = prospect.city ?? 'UK'
 
   const schemaExample: CallBrief = {
     company_background: '<what the business does, how long trading, service area>',
@@ -106,16 +96,12 @@ async function generateCallBrief(prospect: ProspectRow): Promise<CallBrief> {
   const userContent = [
     `Build a call brief for this prospect:`,
     ``,
-    `Name: ${prospect.name}`,
-    `Company: ${prospect.company}`,
+    `Name: ${prospect.owner_name}`,
+    `Company: ${prospect.business_name}`,
     `Niche: ${niche}`,
     `Location: ${location}`,
-    `Quality score: ${prospect.quality_score}/10`,
+    `Quality score: ${prospect.icp_total_score}/10`,
     `Phone: ${prospect.phone ?? 'unknown'}`,
-    ed?.review_count != null ? `Known review count: ${ed.review_count}` : null,
-    ed?.trading_since ? `Trading since: ${ed.trading_since}` : null,
-    ed?.has_website != null ? `Has website: ${ed.has_website}` : null,
-    ed?.summary ? `Enrichment summary: ${ed.summary}` : null,
   ].filter(Boolean).join('\n')
 
   const messages: Anthropic.MessageParam[] = [
@@ -146,7 +132,7 @@ async function generateCallBrief(prospect: ProspectRow): Promise<CallBrief> {
   }
 
   const jsonMatch = finalText.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error(`No JSON in call brief response for ${prospect.company}`)
+  if (!jsonMatch) throw new Error(`No JSON in call brief response for ${prospect.business_name}`)
 
   return JSON.parse(jsonMatch[0]) as CallBrief
 }
@@ -177,9 +163,9 @@ Deno.serve(async (req) => {
     // ── 1. Fetch call_booked prospects ────────────────────────────────────────
     let query = supabase
       .from('prospects')
-      .select('id, name, company, phone, niche, location, quality_score, enrichment_data')
+      .select('id, owner_name, business_name, phone, vertical, city, icp_total_score')
       .eq('status', 'call_booked')
-      .order('quality_score', { ascending: false })
+      .order('icp_total_score', { ascending: false })
       .limit(BATCH_LIMIT)
 
     if (webhookProspectId) query = query.eq('id', webhookProspectId)
@@ -219,17 +205,17 @@ Deno.serve(async (req) => {
             content_type: 'call_brief',
             content_id: prospect.id,
             content: {
-              title: `Call Brief — ${prospect.company} — ${today}`,
+              title: `Call Brief — ${prospect.business_name} — ${today}`,
               body: brief.company_background,
-              recipient: prospect.name,
+              recipient: prospect.owner_name,
               brief,
               metadata: {
                 prospect_id: prospect.id,
-                company: prospect.company,
-                niche: prospect.niche,
-                location: prospect.location,
+                company: prospect.business_name,
+                niche: prospect.vertical,
+                location: prospect.city,
                 phone: prospect.phone,
-                quality_score: prospect.quality_score,
+                icp_total_score: prospect.icp_total_score,
                 generated_at: new Date().toISOString(),
               },
             },
@@ -241,12 +227,12 @@ Deno.serve(async (req) => {
 
         briefed.push({
           prospect_id: prospect.id,
-          company: prospect.company,
+          company: prospect.business_name,
           approval_id: approvalRow?.id,
         })
       } catch (prospectErr) {
         console.error(
-          `Call brief error for ${prospect.company} (${prospect.id}):`,
+          `Call brief error for ${prospect.business_name} (${prospect.id}):`,
           prospectErr instanceof Error ? prospectErr.message : String(prospectErr),
         )
         errors++

@@ -10,23 +10,14 @@ const SIGNED_URL_TTL = 60 * 60 * 24 * 7 // 7 days
 
 const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_uses: 5 } as Anthropic.Tool
 
-interface EnrichmentData {
-  review_count: number | null
-  trading_since: string | null
-  has_website: boolean
-  niche_fit: boolean
-  summary: string
-}
-
 interface ProspectRow {
   id: string
-  name: string
-  company: string
+  owner_name: string
+  business_name: string
   phone: string | null
-  niche: string | null
-  location: string | null
-  quality_score: number
-  enrichment_data: EnrichmentData | null
+  vertical: string | null
+  city: string | null
+  icp_total_score: number
 }
 
 interface MarketResearch {
@@ -52,15 +43,15 @@ interface BusinessProfile {
 
 // ── Phase 1: research the prospect's local market and competitors ──────────────
 async function researchMarket(prospect: ProspectRow): Promise<MarketResearch> {
-  const niche = prospect.niche ?? 'local service business'
-  const location = prospect.location ?? 'UK'
+  const niche = prospect.vertical ?? 'local service business'
+  const location = prospect.city ?? 'UK'
 
   const messages: Anthropic.MessageParam[] = [
     {
       role: 'user',
       content: [
         `Research the local market for a ${niche} business in ${location}.`,
-        `Business: ${prospect.company}`,
+        `Business: ${prospect.business_name}`,
         ``,
         `Find:`,
         `1. Approximate number of competing ${niche} businesses in ${location}`,
@@ -116,14 +107,14 @@ async function researchMarket(prospect: ProspectRow): Promise<MarketResearch> {
 
 // ── Phase 2: research the prospect's own business profile online ──────────────
 async function researchBusinessProfile(prospect: ProspectRow): Promise<BusinessProfile> {
-  const niche = prospect.niche ?? 'local service business'
-  const location = prospect.location ?? 'UK'
+  const niche = prospect.vertical ?? 'local service business'
+  const location = prospect.city ?? 'UK'
 
   const messages: Anthropic.MessageParam[] = [
     {
       role: 'user',
       content: [
-        `Research the online presence and business profile of "${prospect.company}", a ${niche} in ${location}.`,
+        `Research the online presence and business profile of "${prospect.business_name}", a ${niche} in ${location}.`,
         ``,
         `Find:`,
         `1. Their website URL (if any)`,
@@ -177,7 +168,7 @@ async function researchBusinessProfile(prospect: ProspectRow): Promise<BusinessP
     strengths: [],
     weaknesses: ['Online presence data not publicly available'],
     online_presence_score: 'weak',
-    profile_summary: `Online profile data for ${prospect.company} could not be retrieved.`,
+    profile_summary: `Online profile data for ${prospect.business_name} could not be retrieved.`,
     sources: [],
   }
 }
@@ -189,19 +180,17 @@ async function fillTemplate(
   market: MarketResearch,
   profile: BusinessProfile,
 ): Promise<string> {
-  const ed = prospect.enrichment_data
-
   const prospectJson = JSON.stringify({
-    name: prospect.name,
-    first_name: prospect.name.split(' ')[0],
-    company: prospect.company,
-    niche: prospect.niche ?? 'local service business',
-    location: prospect.location ?? 'UK',
-    quality_score: prospect.quality_score,
-    review_count: ed?.review_count ?? profile.review_count ?? null,
-    trading_since: ed?.trading_since ?? null,
-    has_website: ed?.has_website ?? (profile.website_url !== null),
-    business_summary: ed?.summary ?? profile.profile_summary ?? null,
+    name: prospect.owner_name,
+    first_name: (prospect.owner_name ?? prospect.business_name).split(' ')[0],
+    company: prospect.business_name,
+    niche: prospect.vertical ?? 'local service business',
+    location: prospect.city ?? 'UK',
+    icp_total_score: prospect.icp_total_score,
+    review_count: profile.review_count ?? null,
+    trading_since: null,
+    has_website: profile.website_url !== null,
+    business_summary: profile.profile_summary ?? null,
   }, null, 2)
 
   const marketJson = JSON.stringify(market, null, 2)
@@ -290,9 +279,9 @@ Deno.serve(async (req) => {
     // ── 2. Fetch spoa_ready prospects ─────────────────────────────────────────
     const { data: rawProspects, error: fetchError } = await supabase
       .from('prospects')
-      .select('id, name, company, phone, niche, location, quality_score, enrichment_data')
+      .select('id, owner_name, business_name, phone, vertical, city, icp_total_score')
       .eq('status', 'spoa_ready')
-      .order('quality_score', { ascending: false })
+      .order('icp_total_score', { ascending: false })
       .limit(BATCH_LIMIT)
 
     if (fetchError) throw new Error(`fetch prospects: ${fetchError.message}`)
@@ -365,17 +354,17 @@ Deno.serve(async (req) => {
             content_type: 'spoa_document',
             content_id: prospect.id,
             content: {
-              title: `SPOA — ${prospect.company} — ${batchDate}`,
-              body: `Strategic Plan of Action ready for ${prospect.company} (${prospect.location ?? 'UK'}).`,
-              recipient: prospect.name,
+              title: `SPOA — ${prospect.business_name} — ${batchDate}`,
+              body: `Strategic Plan of Action ready for ${prospect.business_name} (${prospect.city ?? 'UK'}).`,
+              recipient: prospect.owner_name,
               signed_url: signedData.signedUrl,
               storage_path: storagePath,
               metadata: {
                 prospect_id: prospect.id,
-                company: prospect.company,
-                niche: prospect.niche,
-                location: prospect.location,
-                quality_score: prospect.quality_score,
+                company: prospect.business_name,
+                niche: prospect.vertical,
+                location: prospect.city,
+                icp_total_score: prospect.icp_total_score,
                 competitor_count: market.competitor_count,
                 avg_competitor_reviews: market.avg_competitor_reviews,
                 market_demand: market.market_demand,
@@ -400,7 +389,7 @@ Deno.serve(async (req) => {
 
         built.push({
           prospect_id: prospect.id,
-          company: prospect.company,
+          company: prospect.business_name,
           storage_path: storagePath,
           signed_url: signedData.signedUrl,
           approval_id: approvalRow?.id,
@@ -409,7 +398,7 @@ Deno.serve(async (req) => {
         })
       } catch (prospectErr) {
         console.error(
-          `SPOA error for ${prospect.company} (${prospect.id}):`,
+          `SPOA error for ${prospect.business_name} (${prospect.id}):`,
           prospectErr instanceof Error ? prospectErr.message : String(prospectErr),
         )
         errors++

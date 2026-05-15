@@ -10,23 +10,14 @@ const SIGNED_URL_TTL = 60 * 60 * 24 * 7 // 7 days
 
 const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_uses: 4 } as Anthropic.Tool
 
-interface EnrichmentData {
-  review_count: number | null
-  trading_since: string | null
-  has_website: boolean
-  niche_fit: boolean
-  summary: string
-}
-
 interface ProspectRow {
   id: string
-  name: string
-  company: string
+  owner_name: string
+  business_name: string
   phone: string | null
-  niche: string | null
-  location: string | null
-  quality_score: number
-  enrichment_data: EnrichmentData | null
+  vertical: string | null
+  city: string | null
+  icp_total_score: number
 }
 
 interface MarketResearch {
@@ -40,15 +31,15 @@ interface MarketResearch {
 
 // ── Phase 1: research the prospect's local market via web_search ──────────────
 async function researchMarket(prospect: ProspectRow): Promise<MarketResearch> {
-  const niche = prospect.niche ?? 'local service business'
-  const location = prospect.location ?? 'UK'
+  const niche = prospect.vertical ?? 'local service business'
+  const location = prospect.city ?? 'UK'
 
   const messages: Anthropic.MessageParam[] = [
     {
       role: 'user',
       content: [
         `Research the local market for a ${niche} business in ${location}.`,
-        `Business: ${prospect.company}`,
+        `Business: ${prospect.business_name}`,
         ``,
         `Find:`,
         `1. Approximate number of competing ${niche} businesses in ${location}`,
@@ -109,19 +100,17 @@ async function fillTemplate(
   prospect: ProspectRow,
   research: MarketResearch,
 ): Promise<string> {
-  const ed = prospect.enrichment_data
-
   const prospectJson = JSON.stringify({
-    name: prospect.name,
-    first_name: prospect.name.split(' ')[0],
-    company: prospect.company,
-    niche: prospect.niche ?? 'local service business',
-    location: prospect.location ?? 'UK',
-    quality_score: prospect.quality_score,
-    review_count: ed?.review_count ?? null,
-    trading_since: ed?.trading_since ?? null,
-    has_website: ed?.has_website ?? null,
-    business_summary: ed?.summary ?? null,
+    name: prospect.owner_name,
+    first_name: (prospect.owner_name ?? prospect.business_name).split(' ')[0],
+    company: prospect.business_name,
+    niche: prospect.vertical ?? 'local service business',
+    location: prospect.city ?? 'UK',
+    icp_total_score: prospect.icp_total_score,
+    review_count: null,
+    trading_since: null,
+    has_website: null,
+    business_summary: null,
   }, null, 2)
 
   const researchJson = JSON.stringify(research, null, 2)
@@ -205,9 +194,9 @@ Deno.serve(async (req) => {
     // ── 2. Fetch mjr_ready prospects ──────────────────────────────────────────
     const { data: rawProspects, error: fetchError } = await supabase
       .from('prospects')
-      .select('id, name, company, phone, niche, location, quality_score, enrichment_data')
+      .select('id, owner_name, business_name, phone, vertical, city, icp_total_score')
       .eq('status', 'mjr_ready')
-      .order('quality_score', { ascending: false })
+      .order('icp_total_score', { ascending: false })
       .limit(BATCH_LIMIT)
 
     if (fetchError) throw new Error(`fetch prospects: ${fetchError.message}`)
@@ -273,21 +262,21 @@ Deno.serve(async (req) => {
             sop_id: '08',
             sop_name: 'SOP 08 — MJR Build',
             status: 'pending',
-            priority: prospect.quality_score >= 8 ? 'high' : 'medium',
+            priority: prospect.icp_total_score >= 8 ? 'high' : 'medium',
             content_type: 'mjr_document',
             content_id: prospect.id,
             content: {
-              title: `MJR — ${prospect.company} — ${batchDate}`,
-              body: `Missed Jobs Report ready for ${prospect.company} (${prospect.location ?? 'UK'}).`,
-              recipient: prospect.name,
+              title: `MJR — ${prospect.business_name} — ${batchDate}`,
+              body: `Missed Jobs Report ready for ${prospect.business_name} (${prospect.city ?? 'UK'}).`,
+              recipient: prospect.owner_name,
               signed_url: signedData.signedUrl,
               storage_path: storagePath,
               metadata: {
                 prospect_id: prospect.id,
-                company: prospect.company,
-                niche: prospect.niche,
-                location: prospect.location,
-                quality_score: prospect.quality_score,
+                company: prospect.business_name,
+                niche: prospect.vertical,
+                location: prospect.city,
+                icp_total_score: prospect.icp_total_score,
                 competitor_count: research.competitor_count,
                 avg_competitor_reviews: research.avg_competitor_reviews,
                 market_demand: research.market_demand,
@@ -308,7 +297,7 @@ Deno.serve(async (req) => {
 
         built.push({
           prospect_id: prospect.id,
-          company: prospect.company,
+          company: prospect.business_name,
           storage_path: storagePath,
           signed_url: signedData.signedUrl,
           approval_id: approvalRow?.id,
@@ -316,7 +305,7 @@ Deno.serve(async (req) => {
         })
       } catch (prospectErr) {
         console.error(
-          `MJR error for ${prospect.company} (${prospect.id}):`,
+          `MJR error for ${prospect.business_name} (${prospect.id}):`,
           prospectErr instanceof Error ? prospectErr.message : String(prospectErr),
         )
         errors++

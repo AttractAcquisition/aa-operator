@@ -9,10 +9,10 @@ const MIN_QUALITY = 6
 
 interface ProspectRow {
   id: string
-  quality_score: number
-  niche: string | null
-  company: string
-  location: string | null
+  icp_total_score: number
+  vertical: string | null
+  business_name: string
+  city: string | null
 }
 
 async function generateBatchNotes(
@@ -21,7 +21,7 @@ async function generateBatchNotes(
 ): Promise<string> {
   const nicheCounts: Record<string, number> = {}
   for (const p of prospects) {
-    const niche = p.niche ?? 'unknown'
+    const niche = p.vertical ?? 'unknown'
     nicheCounts[niche] = (nicheCounts[niche] ?? 0) + 1
   }
 
@@ -33,7 +33,7 @@ async function generateBatchNotes(
 
   const scoreDistribution = [6, 7, 8, 9, 10]
     .map(s => {
-      const n = prospects.filter(p => p.quality_score === s).length
+      const n = prospects.filter(p => p.icp_total_score === s).length
       return n > 0 ? `${n} at ${s}` : null
     })
     .filter(Boolean)
@@ -77,10 +77,10 @@ Deno.serve(async (req) => {
     // ── 1. Fetch enriched prospects that meet the quality threshold ───────────
     const { data: rawProspects, error: fetchError } = await supabase
       .from('prospects')
-      .select('id, quality_score, niche, company, location')
+      .select('id, icp_total_score, vertical, business_name, city')
       .eq('status', 'enriched')
-      .gte('quality_score', MIN_QUALITY)
-      .order('quality_score', { ascending: false })
+      .gte('icp_total_score', MIN_QUALITY)
+      .order('icp_total_score', { ascending: false })
 
     if (fetchError) throw new Error(`fetch prospects: ${fetchError.message}`)
 
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
 
     // ── 2. Compute batch metrics ──────────────────────────────────────────────
     const prospectIds = prospects.map(p => p.id)
-    const avgQuality = prospects.reduce((s, p) => s + p.quality_score, 0) / prospects.length
+    const avgQuality = prospects.reduce((s, p) => s + p.icp_total_score, 0) / prospects.length
 
     // ── 3. Stage all qualifying prospects in one update ───────────────────────
     const { error: updateError } = await supabase
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
       tool_called: HAIKU,
       status: 'success',
       duration_ms: Date.now() - startedAt,
-      input_summary: `${prospects.length} enriched prospects with quality_score >= ${MIN_QUALITY}`,
+      input_summary: `${prospects.length} enriched prospects with icp_total_score >= ${MIN_QUALITY}`,
       output_summary:
         `${prospects.length} staged, avg quality ${avgQuality.toFixed(1)}, batch ${batchRow?.id}`,
     })
@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
         tool_called: HAIKU,
         status: 'failure',
         duration_ms: Date.now() - startedAt,
-        input_summary: `enriched prospects quality_score >= ${MIN_QUALITY}`,
+        input_summary: `enriched prospects icp_total_score >= ${MIN_QUALITY}`,
         output_summary: `Error: ${message}`,
       })
     } catch { /* ignore logging failure */ }

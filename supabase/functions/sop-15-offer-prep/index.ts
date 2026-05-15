@@ -36,23 +36,14 @@ PRODUCT TIERS — Attract Acquisition:
    multiple locations or services, willing to invest for dominance.
 `.trim()
 
-interface EnrichmentData {
-  review_count: number | null
-  trading_since: string | null
-  has_website: boolean
-  niche_fit: boolean
-  summary: string
-}
-
 interface ProspectRow {
   id: string
-  name: string
-  company: string
+  owner_name: string
+  business_name: string
   phone: string | null
-  niche: string | null
-  location: string | null
-  quality_score: number
-  enrichment_data: EnrichmentData | null
+  vertical: string | null
+  city: string | null
+  icp_total_score: number
 }
 
 type ProductTier = 'proof_sprint' | 'proof_brand' | 'authority_brand'
@@ -74,9 +65,8 @@ interface TierAssessment {
 
 // ── Phase 1: research the business and assess which tier fits ─────────────────
 async function researchAndAssessTier(prospect: ProspectRow): Promise<TierAssessment> {
-  const ed = prospect.enrichment_data
-  const niche = prospect.niche ?? 'local service business'
-  const location = prospect.location ?? 'UK'
+  const niche = prospect.vertical ?? 'local service business'
+  const location = prospect.city ?? 'UK'
 
   const schemaExample: TierAssessment = {
     recommended_tier: 'proof_sprint',
@@ -120,15 +110,11 @@ async function researchAndAssessTier(prospect: ProspectRow): Promise<TierAssessm
   const userContent = [
     `Research this prospect and recommend a product tier:`,
     ``,
-    `Name: ${prospect.name}`,
-    `Company: ${prospect.company}`,
+    `Name: ${prospect.owner_name}`,
+    `Company: ${prospect.business_name}`,
     `Niche: ${niche}`,
     `Location: ${location}`,
-    `Quality score: ${prospect.quality_score}/10`,
-    ed?.review_count != null ? `Known review count: ${ed.review_count}` : null,
-    ed?.trading_since ? `Trading since: ${ed.trading_since}` : null,
-    ed?.has_website != null ? `Has website: ${ed.has_website}` : null,
-    ed?.summary ? `Enrichment summary: ${ed.summary}` : null,
+    `Quality score: ${prospect.icp_total_score}/10`,
   ].filter(Boolean).join('\n')
 
   const messages: Anthropic.MessageParam[] = [
@@ -159,7 +145,7 @@ async function researchAndAssessTier(prospect: ProspectRow): Promise<TierAssessm
   }
 
   const jsonMatch = finalText.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error(`No JSON in tier assessment for ${prospect.company}`)
+  if (!jsonMatch) throw new Error(`No JSON in tier assessment for ${prospect.business_name}`)
 
   return JSON.parse(jsonMatch[0]) as TierAssessment
 }
@@ -206,15 +192,15 @@ async function generateOfferDocument(
           '',
           'PROSPECT:',
           JSON.stringify({
-            name: prospect.name,
-            first_name: prospect.name.split(' ')[0],
-            company: prospect.company,
-            niche: prospect.niche ?? 'local service business',
-            location: prospect.location ?? 'UK',
-            quality_score: prospect.quality_score,
-            review_count: prospect.enrichment_data?.review_count ?? null,
-            trading_since: prospect.enrichment_data?.trading_since ?? null,
-            has_website: prospect.enrichment_data?.has_website ?? null,
+            name: prospect.owner_name,
+            first_name: (prospect.owner_name ?? prospect.business_name).split(' ')[0],
+            company: prospect.business_name,
+            niche: prospect.vertical ?? 'local service business',
+            location: prospect.city ?? 'UK',
+            icp_total_score: prospect.icp_total_score,
+            review_count: null,
+            trading_since: null,
+            has_website: null,
           }, null, 2),
           '',
           'TIER ASSESSMENT:',
@@ -288,14 +274,14 @@ async function generateCallPrepSummary(
           '',
           'PROSPECT:',
           JSON.stringify({
-            name: prospect.name,
-            first_name: prospect.name.split(' ')[0],
-            company: prospect.company,
-            niche: prospect.niche ?? 'local service business',
-            location: prospect.location ?? 'UK',
-            quality_score: prospect.quality_score,
-            review_count: prospect.enrichment_data?.review_count ?? null,
-            trading_since: prospect.enrichment_data?.trading_since ?? null,
+            name: prospect.owner_name,
+            first_name: (prospect.owner_name ?? prospect.business_name).split(' ')[0],
+            company: prospect.business_name,
+            niche: prospect.vertical ?? 'local service business',
+            location: prospect.city ?? 'UK',
+            icp_total_score: prospect.icp_total_score,
+            review_count: null,
+            trading_since: null,
           }, null, 2),
           '',
           'OFFER CONTEXT:',
@@ -376,9 +362,9 @@ Deno.serve(async (req) => {
     // ── 1. Fetch call_booked prospects ────────────────────────────────────────
     let query = supabase
       .from('prospects')
-      .select('id, name, company, phone, niche, location, quality_score, enrichment_data')
+      .select('id, owner_name, business_name, phone, vertical, city, icp_total_score')
       .eq('status', 'call_booked')
-      .order('quality_score', { ascending: false })
+      .order('icp_total_score', { ascending: false })
       .limit(BATCH_LIMIT)
 
     if (webhookProspectId) query = query.eq('id', webhookProspectId)
@@ -445,10 +431,10 @@ Deno.serve(async (req) => {
 
         const sharedMeta = {
           prospect_id: prospect.id,
-          company: prospect.company,
-          niche: prospect.niche,
-          location: prospect.location,
-          quality_score: prospect.quality_score,
+          company: prospect.business_name,
+          niche: prospect.vertical,
+          location: prospect.city,
+          icp_total_score: prospect.icp_total_score,
           recommended_tier: assessment.recommended_tier,
           monthly_price: assessment.monthly_price,
           minimum_months: assessment.minimum_months,
@@ -466,9 +452,9 @@ Deno.serve(async (req) => {
             content_type: 'offer_document',
             content_id: prospect.id,
             content: {
-              title: `Offer Doc — ${prospect.company} — ${tierLabel} — ${batchDate}`,
-              body: `Personalised ${tierLabel} offer document for ${prospect.company} (${prospect.location ?? 'UK'}). ${assessment.tier_rationale}`,
-              recipient: prospect.name,
+              title: `Offer Doc — ${prospect.business_name} — ${tierLabel} — ${batchDate}`,
+              body: `Personalised ${tierLabel} offer document for ${prospect.business_name} (${prospect.city ?? 'UK'}). ${assessment.tier_rationale}`,
+              recipient: prospect.owner_name,
               signed_url: offerSigned.signedUrl,
               storage_path: offerPath,
               metadata: {
@@ -496,9 +482,9 @@ Deno.serve(async (req) => {
             content_type: 'call_brief',
             content_id: prospect.id,
             content: {
-              title: `Call Prep — ${prospect.company} — ${tierLabel} — ${batchDate}`,
-              body: `One-page call prep summary for ${prospect.company}. Recommended tier: ${tierLabel} at £${assessment.monthly_price.toLocaleString()}/month.`,
-              recipient: prospect.name,
+              title: `Call Prep — ${prospect.business_name} — ${tierLabel} — ${batchDate}`,
+              body: `One-page call prep summary for ${prospect.business_name}. Recommended tier: ${tierLabel} at £${assessment.monthly_price.toLocaleString()}/month.`,
+              recipient: prospect.owner_name,
               signed_url: callPrepSigned.signedUrl,
               storage_path: callPrepPath,
               metadata: {
@@ -520,7 +506,7 @@ Deno.serve(async (req) => {
 
         prepped.push({
           prospect_id: prospect.id,
-          company: prospect.company,
+          company: prospect.business_name,
           recommended_tier: assessment.recommended_tier,
           offer_storage_path: offerPath,
           offer_signed_url: offerSigned.signedUrl,
@@ -531,7 +517,7 @@ Deno.serve(async (req) => {
         })
       } catch (prospectErr) {
         console.error(
-          `Offer prep error for ${prospect.company} (${prospect.id}):`,
+          `Offer prep error for ${prospect.business_name} (${prospect.id}):`,
           prospectErr instanceof Error ? prospectErr.message : String(prospectErr),
         )
         errors++

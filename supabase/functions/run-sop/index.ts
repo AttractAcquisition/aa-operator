@@ -221,7 +221,7 @@ async function executeTool(
       const hours = (input.hours as number) ?? 24
       const since = new Date(Date.now() - hours * 3600_000).toISOString()
       const { data } = await supabase.from('prospects')
-        .select('id, name, company, status, quality_score, source_list')
+        .select('id, owner_name, business_name, status, icp_total_score, source_list')
         .gte('created_at', since)
       return { count: data?.length ?? 0, leads: data ?? [] }
     }
