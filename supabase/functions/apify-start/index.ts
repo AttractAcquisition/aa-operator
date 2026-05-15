@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 // Apify actor for Google Maps scraping
-const APIFY_ACTOR_ID = 'compass~crawler-google-places'
+const APIFY_ACTOR_ID = 'apify~google-maps-scraper'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -54,6 +54,8 @@ Deno.serve(async (req) => {
 
     const input = {
       searchStringsArray: [`${search_term} ${location_query}`],
+      searchType: 'search',
+      countryCode: 'ZA',
       language,
       maxCrawledPlacesPerSearch: max_results,
       skipClosedPlaces: skip_closed_places,
