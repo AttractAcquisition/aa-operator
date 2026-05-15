@@ -10,38 +10,28 @@ const MAX_SEARCH_ITERATIONS = 5
 
 const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_uses: 3 } as Anthropic.Tool
 
-interface EnrichmentData {
-  review_count: number | null
-  trading_since: string | null
-  has_website: boolean
-  niche_fit: boolean
-  summary: string
-  sources: string[]
-}
-
 interface EnrichmentResult {
-  quality_score: number
-  enrichment_data: EnrichmentData
+  icp_total_score: number
 }
 
 interface Prospect {
   id: string
-  name: string
-  company: string
+  owner_name: string
+  business_name: string
   phone: string | null
-  niche: string | null
-  location: string | null
+  vertical: string | null
+  city: string | null
 }
 
 async function enrichProspect(prospect: Prospect): Promise<EnrichmentResult> {
-  const locationLine = prospect.location ? `Location: ${prospect.location}` : ''
-  const nicheLine = prospect.niche ? `Industry/Niche: ${prospect.niche}` : ''
+  const locationLine = prospect.city ? `Location: ${prospect.city}` : ''
+  const nicheLine = prospect.vertical ? `Industry/Niche: ${prospect.vertical}` : ''
 
   const prompt = [
     `Research the following business online and return a structured quality score.`,
     ``,
-    `Business: ${prospect.company}`,
-    `Contact: ${prospect.name}`,
+    `Business: ${prospect.business_name}`,
+    `Contact: ${prospect.owner_name}`,
     locationLine,
     nicheLine,
     ``,
@@ -90,20 +80,12 @@ async function enrichProspect(prospect: Prospect): Promise<EnrichmentResult> {
   }
 
   const jsonMatch = finalText.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error(`No JSON in enrichment response for ${prospect.company}`)
+  if (!jsonMatch) throw new Error(`No JSON in enrichment response for ${prospect.business_name}`)
 
   const parsed = JSON.parse(jsonMatch[0])
 
   return {
-    quality_score: Math.min(10, Math.max(1, Number(parsed.quality_score) || 1)),
-    enrichment_data: {
-      review_count: parsed.review_count != null ? Number(parsed.review_count) : null,
-      trading_since: typeof parsed.trading_since === 'string' ? parsed.trading_since : null,
-      has_website: Boolean(parsed.has_website),
-      niche_fit: Boolean(parsed.niche_fit),
-      summary: String(parsed.summary ?? ''),
-      sources: Array.isArray(parsed.sources) ? parsed.sources.map(String) : [],
-    },
+    icp_total_score: Math.min(10, Math.max(1, Number(parsed.quality_score) || 1)),
   }
 }
 
@@ -131,7 +113,7 @@ Deno.serve(async (req) => {
     // Fetch new prospects
     let query = supabase
       .from('prospects')
-      .select('id, name, company, phone, niche, location')
+      .select('id, owner_name, business_name, phone, vertical, city')
       .eq('status', 'new')
       .limit(BATCH_SIZE)
 
@@ -156,7 +138,7 @@ Deno.serve(async (req) => {
 
     for (const p of rawProspects) {
       const phone = p.phone ? String(p.phone).replace(/\D/g, '') : null
-      const company = p.company ? String(p.company).toLowerCase().trim() : null
+      const company = p.business_name ? String(p.business_name).toLowerCase().trim() : null
 
       const isDuplicate =
         (phone && seenPhones.has(phone)) ||
@@ -186,13 +168,12 @@ Deno.serve(async (req) => {
     for (const prospect of unique) {
       try {
         const result = await enrichProspect(prospect)
-        const newStatus = result.quality_score >= 5 ? 'enriched' : 'low_quality'
+        const newStatus = result.icp_total_score >= 5 ? 'enriched' : 'low_quality'
 
         await supabase
           .from('prospects')
           .update({
-            enrichment_data: result.enrichment_data,
-            quality_score: result.quality_score,
+            icp_total_score: result.icp_total_score,
             status: newStatus,
           })
           .eq('id', prospect.id)
