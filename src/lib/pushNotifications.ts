@@ -77,6 +77,8 @@ export async function unsubscribeFromPush(): Promise<void> {
   await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
 }
 
+// Kept for backward compatibility — new component inlines the permission call
+// directly in the click handler to satisfy iOS Safari's user gesture requirement.
 export async function requestPushPermission(): Promise<'granted' | 'denied' | 'needs-install'> {
   if (isIOS() && !isStandalone()) return 'needs-install'
 
@@ -98,4 +100,47 @@ export async function checkExistingSubscription(): Promise<boolean> {
 
   const subscription = await registration.pushManager.getSubscription()
   return subscription !== null
+}
+
+export async function testPushSetup(): Promise<{
+  supported: boolean
+  permission: string
+  swRegistered: boolean
+  subscribed: boolean
+  vapidKeyPresent: boolean
+  issues: string[]
+}> {
+  const issues: string[] = []
+
+  const supported = isPushSupported()
+  if (!supported) issues.push('Push not supported in this browser')
+
+  const permission = 'Notification' in window ? Notification.permission : 'unavailable'
+  if (permission === 'denied') issues.push('Permission denied — user must re-enable in browser settings')
+  if (permission === 'default') issues.push('Permission not yet requested')
+
+  const vapidKeyPresent = !!import.meta.env.VITE_VAPID_PUBLIC_KEY
+  if (!vapidKeyPresent) issues.push('VITE_VAPID_PUBLIC_KEY is not set')
+
+  let swRegistered = false
+  try {
+    const reg = await navigator.serviceWorker.getRegistration('/sw.js')
+    swRegistered = !!reg
+    if (!swRegistered) issues.push('Service worker not registered — refresh the page')
+  } catch {
+    issues.push('Service worker check failed')
+  }
+
+  let subscribed = false
+  try {
+    subscribed = await checkExistingSubscription()
+  } catch {
+    issues.push('Could not check subscription status')
+  }
+
+  if (isIOS() && !isStandalone()) {
+    issues.push('iOS non-standalone — Add to Home Screen required for push notifications')
+  }
+
+  return { supported, permission, swRegistered, subscribed, vapidKeyPresent, issues }
 }
